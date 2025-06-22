@@ -1,6 +1,9 @@
+-- Enhanced contacts table migration
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- Add migration script here
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,

@@ -1,12 +1,16 @@
 use anyhow::{Context, Result};
-use axum::{Extension, Router, routing::get};
+use axum::{Json, Router, extract::Extension, http::StatusCode, routing::get};
 use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use tracing::{Level, info};
 use tracing_subscriber;
 
+use crate::models::User;
+
+mod models;
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), anyhow::Error> {
     // initialize tracing for logging
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
@@ -20,6 +24,8 @@ async fn main() -> Result<()> {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
+        .route("/hi", get(hi))
+        .route("/users", get(get_all_users))
         .layer(Extension(db_pool));
 
     // run our app with hyper, listening globally on port
@@ -34,4 +40,19 @@ async fn main() -> Result<()> {
 // handler for GET /
 async fn root() -> &'static str {
     "Hello, world!"
+}
+
+async fn hi() -> &'static str {
+    "hi!"
+}
+
+async fn get_all_users(
+    Extension(pool): Extension<Pool<Postgres>>,
+) -> Result<Json<Vec<User>>, StatusCode> {
+    let users = sqlx::query_as!(User, "SELECT id, username, email, password_hash FROM users")
+        .fetch_all(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(users))
 }
