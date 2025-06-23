@@ -5,9 +5,10 @@ use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use tracing::{Level, info};
 use tracing_subscriber;
 
-use crate::models::User;
-
+mod handlers;
 mod models;
+mod routes;
+use crate::{models::User, routes::api_v1_routes};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -26,6 +27,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .route("/", get(root))
         .route("/hi", get(hi))
         .route("/users", get(get_all_users))
+        .nest("/api/v1", api_v1_routes())
         .layer(Extension(db_pool));
 
     // run our app with hyper, listening globally on port

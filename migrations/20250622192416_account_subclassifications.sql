@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS account_subclassifications (
     CONSTRAINT account_subclassifications_alias_name_not_empty CHECK (alias_name <> ''),
     CONSTRAINT account_subclassifications_cash_flow_type_valid CHECK (cash_flow_type IN ('operating', 'investing', 'financing')),
     CONSTRAINT account_subclassifications_ratio_type_not_empty CHECK (ratio_type <> ''),
-    CONSTRAINT account_subclassifications_account_classification_id_exists FOREIGN KEY (account_classification_id) REFERENCES account_classifications(id) ON DELETE CASCADE,
     CONSTRAINT account_subclassifications_parent_id_exists FOREIGN KEY (parent_id) REFERENCES account_subclassifications(id) ON DELETE SET NULL
 );
 
