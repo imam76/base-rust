@@ -1,7 +1,6 @@
 use crate::handlers::{self, account_subclassification};
 use axum::{
     Router,
-    http::StatusCode,
     routing::{get, post},
 };
 
