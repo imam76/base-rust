@@ -38,7 +38,18 @@ pub async fn create(
     );
 
     let record = sqlx::query!(
-        "INSERT INTO account_subclassifications (code, name, alias_name, cash_flow_type, ratio_type, is_variable_cost, account_classification_id, parent_id, is_parent, is_active, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, code, name, alias_name, cash_flow_type, ratio_type, is_variable_cost, is_parent, account_classification_id, parent_id, is_active, created_by, updated_by, created_at, updated_at",
+        r#"
+            INSERT INTO account_subclassifications (
+              code, name, alias_name, cash_flow_type, ratio_type, is_variable_cost, 
+              account_classification_id, parent_id, is_parent, is_active, created_by, updated_by
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+            ) 
+            RETURNING 
+              id, code, name, alias_name, cash_flow_type, ratio_type, is_variable_cost, 
+              is_parent, account_classification_id, parent_id, is_active, created_by, 
+              updated_by, created_at, updated_at
+        "#,
         data.code,
         data.name,
         data.alias_name,
