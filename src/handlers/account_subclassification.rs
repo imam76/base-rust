@@ -1,5 +1,4 @@
 use axum::{Extension, Json, http::StatusCode};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::info;

@@ -1,8 +1,5 @@
-use crate::handlers::{self, account_subclassification};
-use axum::{
-    Router,
-    routing::{get, post},
-};
+use crate::handlers::account_subclassification;
+use axum::{Router, routing::get};
 
 pub fn api_v1_routes() -> Router {
     Router::new()
