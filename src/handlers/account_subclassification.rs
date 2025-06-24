@@ -8,7 +8,6 @@ use uuid::Uuid;
 use crate::models::ResAccountSubclassification;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
 pub struct CreateAccountSubclassification {
     pub code: String,
     pub name: String,
@@ -37,7 +36,8 @@ pub async fn create(
         data.code
     );
 
-    let record = sqlx::query!(
+    let record = sqlx::query_as!(
+        ResAccountSubclassification,
         r#"
             INSERT INTO account_subclassifications (
               code, name, alias_name, cash_flow_type, ratio_type, is_variable_cost, 
@@ -70,30 +70,24 @@ pub async fn create(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // Convert OffsetDateTime to DateTime<Utc>
-    let created_at = DateTime::from_timestamp(record.created_at.unix_timestamp(), 0)
-        .unwrap_or_else(|| Utc::now());
-    let updated_at = DateTime::from_timestamp(record.updated_at.unix_timestamp(), 0)
-        .unwrap_or_else(|| Utc::now());
-
     // Construct the response struct manually
-    let response = ResAccountSubclassification {
-        id: record.id,
-        code: record.code,
-        name: record.name,
-        alias_name: record.alias_name,
-        cash_flow_type: record.cash_flow_type,
-        ratio_type: record.ratio_type,
-        is_variable_cost: record.is_variable_cost,
-        is_parent: record.is_parent,
-        account_classification_id: record.account_classification_id,
-        parent_id: record.parent_id,
-        is_active: record.is_active,
-        created_by: record.created_by,
-        updated_by: record.updated_by,
-        created_at,
-        updated_at,
-    };
+    // let response = ResAccountSubclassification {
+    //     id: record.id,
+    //     code: record.code,
+    //     name: record.name,
+    //     alias_name: record.alias_name,
+    //     cash_flow_type: record.cash_flow_type,
+    //     ratio_type: record.ratio_type,
+    //     is_variable_cost: record.is_variable_cost,
+    //     is_parent: record.is_parent,
+    //     account_classification_id: record.account_classification_id,
+    //     parent_id: record.parent_id,
+    //     is_active: record.is_active,
+    //     created_by: record.created_by,
+    //     updated_by: record.updated_by,
+    //     created_at: record.created_at,
+    //     updated_at: record.updated_at,
+    // };
 
-    Ok(Json(response))
+    Ok(Json(record))
 }

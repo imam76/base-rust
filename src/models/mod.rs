@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::prelude::FromRow;
 use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -10,8 +11,7 @@ pub struct User {
     pub password_hash: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResAccountSubclassification {
     pub id: Uuid,
     pub code: String,
