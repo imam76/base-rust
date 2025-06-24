@@ -24,7 +24,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
-        .route("/", get(root))
+        .route("/", get(|| async { "🚀 Rust Base API" }))
         .route("/hi", get(hi))
         .route("/users", get(get_all_users))
         .nest("/api/v1", api_v1_routes())
@@ -33,15 +33,10 @@ async fn main() -> Result<(), anyhow::Error> {
     // run our app with hyper, listening globally on port
     let listener_host = format!("127.0.0.1:{}", &port);
     let listener = tokio::net::TcpListener::bind(&listener_host).await?;
-    info!("Server is running on http://127.0.0.1:{}", &port);
+    info!("🚀 Server is running on http://127.0.0.1:{}", &port);
     axum::serve(listener, app).await?;
 
     Ok(())
-}
-
-// handler for GET /
-async fn root() -> &'static str {
-    "Hello, world!"
 }
 
 async fn hi() -> &'static str {
