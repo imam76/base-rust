@@ -5,38 +5,72 @@ use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 use tracing::{Level, info};
 use tracing_subscriber;
 
+mod errors;
 mod handlers;
 mod models;
+mod res;
 mod routes;
+
 use crate::{models::User, routes::api_v1_routes};
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    // initialize tracing for logging
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    // Initialize logging
+    tracing_subscriber::fmt()
+        .with_max_level(Level::INFO)
+        .init();
 
+    // Load environment variables
     dotenv().ok();
-    let url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
-    let port: String = std::env::var("PORT").unwrap_or_else(|_| "5000".to_string());
-    let db_pool = PgPoolOptions::new().connect(&url).await?;
-    info!("Connected to the database!");
+    let database_url = std::env::var("DATABASE_URL")
+        .context("DATABASE_URL must be set")?;
+    let port = std::env::var("PORT")
+        .unwrap_or_else(|_| "5000".to_string());
 
-    // build our application with a route
+    // Database connection
+    let db_pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await?;
+    info!("✅ Connected to database");
+
+    // Build application routes
     let app = Router::new()
-        // `GET /` goes to `root`
-        .route("/", get(|| async { "🚀 Rust Base API" }))
+        // Root routes
+        .route("/", get(root_handler))
+        .route("/health", get(simple_health))
+        
+        // Legacy routes (consider moving to API v1)
         .route("/hi", get(hi))
         .route("/users", get(get_all_users))
+        
+        // API routes
         .nest("/api/v1", api_v1_routes())
+        
+        // Middleware
         .layer(Extension(db_pool));
 
-    // run our app with hyper, listening globally on port
-    let listener_host = format!("127.0.0.1:{}", &port);
-    let listener = tokio::net::TcpListener::bind(&listener_host).await?;
-    info!("🚀 Server is running on http://127.0.0.1:{}", &port);
+    // Start server
+    let listener_address = format!("127.0.0.1:{}", port);
+    let listener = tokio::net::TcpListener::bind(&listener_address).await?;
+    
+    info!("🚀 Server running on http://{}", listener_address);
+    info!("📚 API Documentation: http://{}/api/v1/health", listener_address);
+    
     axum::serve(listener, app).await?;
-
     Ok(())
+}
+
+// ========================
+// ROOT HANDLERS
+// ========================
+
+async fn root_handler() -> &'static str {
+    "🚀 Rust Base API - Ready to serve!"
+}
+
+async fn simple_health() -> &'static str {
+    "OK"
 }
 
 async fn hi() -> &'static str {
