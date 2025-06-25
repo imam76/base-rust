@@ -15,3 +15,4 @@ tokio = { version = "1.45.1", features = ["full"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 uuid = { version = "1.17.0", features = ["v4", "serde"] }
+validator = { version = "0.20.0", features = ["derive"] }

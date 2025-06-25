@@ -3,12 +3,14 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use tracing::info;
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::models::ResAccountSubclassification;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Validate)]
 pub struct CreateAccountSubclassification {
     pub code: String,
+    #[validate(length(min = 1, max = 10))]
     pub name: String,
     pub alias_name: Option<String>,
     pub cash_flow_type: String,
@@ -59,8 +61,8 @@ pub async fn create(
         data.parent_id,
         data.is_parent,
         data.is_active,
-        Uuid::new_v4(),
-        Uuid::new_v4()
+        data.created_by,
+        data.updated_by,
     )
     .fetch_one(&pool)
     .await
