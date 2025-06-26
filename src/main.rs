@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
-use axum::{Json, Router, extract::Extension, http::StatusCode, routing::get};
+use axum::{Router, extract::Extension, routing::get};
 use dotenvy::dotenv;
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use sqlx::postgres::PgPoolOptions;
 use tracing::{Level, info};
 use tracing_subscriber;
 
@@ -11,7 +11,7 @@ mod models;
 mod res;
 mod routes;
 
-use crate::{models::User, routes::api_v1_routes};
+use crate::routes::api_v1_routes;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
