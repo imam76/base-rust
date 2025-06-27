@@ -1,54 +1,50 @@
-use anyhow::{Context, Result};
-use axum::{Router, extract::Extension, routing::get};
+use axum::{
+    Router,
+    extract::Query,
+    response::{
+        Html,
+        IntoResponse,
+        // Response
+    },
+    routing::get,
+};
 use dotenvy::dotenv;
-use sqlx::postgres::PgPoolOptions;
+use serde::{Deserialize, Serialize};
+// use serde_json::json;
+// use sqlx::postgres::PgPoolOptions;
 use tracing::{Level, info};
-use tracing_subscriber;
 
-mod errors;
+use crate::routes::main;
+
 mod handlers;
-mod models;
-mod res;
 mod routes;
 
-use crate::routes::api_v1_routes;
-
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main() {
     // Initialize logging
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
 
-    // Load environment variables
     dotenv().ok();
-    let database_url = std::env::var("DATABASE_URL").context("DATABASE_URL must be set")?;
-    let port = std::env::var("PORT").unwrap_or_else(|_| "5000".to_string());
+    // let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "5001".to_string());
+    let addr = format!("127.0.0.1:{}", port);
 
     // Database connection
-    let db_pool = PgPoolOptions::new()
-        .max_connections(10)
-        .connect(&database_url)
-        .await?;
-    info!("✅ Connected to database");
+    // let db_pool = PgPoolOptions::new()
+    //     .max_connections(10)
+    //     .connect(&db_url)
+    //     .await
+    //     .expect("Failed to connect to the database");
+    // info!("✅ Connected to database{}", db_url);
 
-    // Build application routes
-    let app = Router::new()
-        // Root routes
-        .route("/", get(root_handler))
-        // API routes
-        .nest("/api/v1", api_v1_routes())
-        // Middleware
-        .layer(Extension(db_pool));
+    let app = Router::new().merge(main::route().await);
 
-    // Start server
-    let listener_address = format!("127.0.0.1:{}", port);
-    let listener = tokio::net::TcpListener::bind(&listener_address).await?;
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("Failed to bind to address");
 
-    info!("🚀 Server running on http://{}", listener_address);
-
-    axum::serve(listener, app).await?;
-    Ok(())
-}
-
-async fn root_handler() -> &'static str {
-    "🚀 Rust Base API - Ready to serve!"
+    info!("🚀 Server running on http://{}", &addr);
+    axum::serve(listener, app)
+        .await
+        .expect("Failed to start server");
 }
