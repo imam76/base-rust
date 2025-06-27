@@ -1,15 +1,5 @@
-use axum::{
-    Router,
-    extract::Query,
-    response::{
-        Html,
-        IntoResponse,
-        // Response
-    },
-    routing::get,
-};
+use axum::Router;
 use dotenvy::dotenv;
-use serde::{Deserialize, Serialize};
 // use serde_json::json;
 // use sqlx::postgres::PgPoolOptions;
 use tracing::{Level, info};

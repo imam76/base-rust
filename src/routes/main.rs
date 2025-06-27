@@ -1,4 +1,4 @@
-use axum::{Router, response::IntoResponse, routing::get};
+use axum::{Router, routing::get};
 
 use crate::handlers::{root::get_all, users::get_all_users};
 
