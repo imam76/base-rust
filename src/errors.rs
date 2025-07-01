@@ -10,6 +10,7 @@ use tracing::info;
 pub enum AppError {
     LoginFailed,
     BadRequest,
+    DatabaseError(String),
 }
 
 pub type Result<T> = core::result::Result<T, AppError>;
@@ -39,6 +40,9 @@ impl IntoResponse for AppError {
                 "Login Failed",
                 "Invalid email or password."
             ),
+            AppError::DatabaseError(details) => {
+                error_response!(StatusCode::INTERNAL_SERVER_ERROR, "Database Error", details)
+            }
         }
     }
 }

@@ -2,9 +2,15 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use sqlx::PgPool;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: PgPool,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
-    pub id: Uuid,
     pub username: String,
     pub email: String,
     pub password_hash: String,
