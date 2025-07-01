@@ -6,6 +6,9 @@ use tracing::{Level, info};
 
 use crate::routes::main;
 
+pub use self::errors::{AppError, Result};
+
+mod errors;
 mod handlers;
 mod routes;
 
