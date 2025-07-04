@@ -49,6 +49,7 @@ cd rust-base
 cargo build
 ```
 
+
 3. **Setup environment variables**
 Buat file `.env` di root project:
 ```env
@@ -56,6 +57,17 @@ DATABASE_URL=postgresql://username:password@localhost/rust_base_db
 PORT=5000
 RUST_LOG=info
 ```
+
+## Dev (REPL)
+
+```sh
+# Terminal 1 - To run the server.
+cargo watch -q -c -w src/ -x "run"
+
+# Terminal 2 - To run the tests.
+cargo watch -q -c -w examples/ -x "run --example quick_dev"
+```
+
 
 ## 🗄️ Konfigurasi Database
 

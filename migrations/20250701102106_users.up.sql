@@ -34,6 +34,7 @@ CREATE TRIGGER trigger_users_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert some sample data for testing (optional)
+-- pass 123123
 INSERT INTO users (username, email, password_hash, first_name, last_name, is_verified) VALUES
 ('admin', 'yqwhjahsdjhuuushdajshdjh@mailinator.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Admin', 'User', true),
 ('testuser', 'yqwhjahsdjhuuushdajshdjh@example.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Test', 'User', false);

@@ -1,18 +1,30 @@
-use axum::Router;
+use axum::{
+    middleware::{self},
+    response::Response,
+    routing::get,
+    Router,
+};
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
+use tower_cookies::CookieManagerLayer;
 // use serde_json::json;
 // use sqlx::postgres::PgPoolOptions;
-use tracing::{Level, info};
+use tracing::{info, Level};
 
-use crate::models::AppState;
+use crate::{
+    handlers::health,
+    middlewares::{auth_resolver_middleware, logging_middleware},
+    models::AppState,
+};
 
 pub use self::errors::{AppError, Result};
 
 mod errors;
 mod handlers;
+mod middlewares;
 mod models;
 mod routes;
+mod utils;
 
 #[tokio::main]
 async fn main() {
@@ -35,9 +47,23 @@ async fn main() {
     // Create app state
     let app_state = AppState { db: db_pool };
 
-    let app = Router::new()
-        .nest("/api/v1/auth", routes::auth::routes().await)
+    // ✅ Create separate routers for public and protected routes
+    let public_routes = Router::new()
+        .route("/", get(|| async { "🚀 Welcome to the My Rust Base API!" })) // Root route
+        .route("/version", get(health::get_version))
+        .route("/health", get(health::get_health))
+        .merge(routes::auth::routes().await); // Auth endpoints (login/logout)
+
+    let protected_routes = Router::new()
         .nest("/api/v1/", routes::main::routes().await)
+        .layer(middleware::from_fn(auth_resolver_middleware::start)); // Auth only for protected routes
+
+    let app = Router::new()
+        .merge(public_routes) // Public routes without auth
+        .merge(protected_routes) // Protected routes with auth
+        .layer(CookieManagerLayer::new()) // Handle cookies for all routes
+        .layer(middleware::from_fn(logging_middleware::start)) // Log all requests
+        .layer(middleware::map_response(main_response_mapper)) // Response mapping for all
         .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind(&addr)
@@ -48,4 +74,12 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .expect("Failed to start server");
+}
+
+async fn main_response_mapper(res: Response) -> Response {
+    info!(
+        "Response main_response_mapper =>: {:?}",
+        "Response received"
+    );
+    res
 }

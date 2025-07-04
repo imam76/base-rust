@@ -8,9 +8,12 @@ use tracing::info;
 
 #[derive(Debug)]
 pub enum AppError {
+    UnhandledError(String),
     LoginFailed,
     BadRequest,
     DatabaseError(String),
+    UnAuthorized,
+    CookieFormatError,
 }
 
 pub type Result<T> = core::result::Result<T, AppError>;
@@ -40,8 +43,25 @@ impl IntoResponse for AppError {
                 "Login Failed",
                 "Invalid email or password."
             ),
+            AppError::UnAuthorized => error_response!(
+                StatusCode::UNAUTHORIZED,
+                "Unauthorized",
+                "You must be authenticated to access this resource."
+            ),
+            AppError::CookieFormatError => error_response!(
+                StatusCode::BAD_REQUEST,
+                "Cookie Format Error",
+                "The provided cookie format is invalid."
+            ),
             AppError::DatabaseError(details) => {
                 error_response!(StatusCode::INTERNAL_SERVER_ERROR, "Database Error", details)
+            }
+            AppError::UnhandledError(details) => {
+                error_response!(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Unhandled Error",
+                    details
+                )
             }
         }
     }

@@ -9,8 +9,24 @@ pub struct AppState {
     pub db: PgPool,
 }
 
+#[derive(Clone)]
+pub struct AuthenticatedUser {
+    user_id: Uuid,
+}
+
+impl AuthenticatedUser {
+    pub fn new(user_id: Uuid) -> Self {
+        Self { user_id }
+    }
+
+    pub fn user_id(&self) -> Uuid {
+        self.user_id
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
+    pub id: Uuid,
     pub username: String,
     pub email: String,
     pub password_hash: String,
