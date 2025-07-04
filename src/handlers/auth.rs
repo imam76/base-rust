@@ -1,12 +1,12 @@
 // use crate::{AppError, Result};
 extern crate bcrypt;
-use bcrypt::{DEFAULT_COST, hash, verify};
+use bcrypt::verify;
 
 use axum::{
-    Json, body,
-    extract::{State, rejection::JsonRejection},
+    extract::{rejection::JsonRejection, State},
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -14,9 +14,9 @@ use tower_cookies::{Cookie, Cookies};
 use tracing::info;
 
 use crate::{
-    AppError,
     models::{AppState, User},
     utils::{self, constants::AUTH_TOKEN},
+    AppError,
 };
 
 #[derive(Debug, Deserialize)]
