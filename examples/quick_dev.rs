@@ -5,7 +5,7 @@ use serde_json::json;
 async fn main() -> Result<()> {
     let hc = httpc_test::new_client("http://127.0.0.1:5001")?;
 
-    hc.do_get("/").await?.print().await?;
+    hc.do_get("/api/v1/hi").await?.print().await?;
     hc.do_get("/version").await?.print().await?;
 
     let req_login = hc.do_post(

@@ -8,6 +8,8 @@ Aplikasi API backend berbasis Rust menggunakan Axum framework dengan database Po
 - [Konfigurasi Database](#konfigurasi-database)
 - [Menjalankan Aplikasi](#menjalankan-aplikasi)
 - [API Endpoints](#api-endpoints)
+- [🚀 Production Deployment](#-production-deployment)
+- [🐳 Docker Support](#-docker-support)
 - [Cara Penggunaan](#cara-penggunaan)
 - [Troubleshooting](#troubleshooting)
 
@@ -481,6 +483,175 @@ curl "http://127.0.0.1:5001/users?search=admin"
 - **Optimized Queries**: Minimal data transfer with field selection
 
 This architecture provides a solid foundation for building scalable REST APIs with consistent patterns, comprehensive functionality, and robust security.
+
+## 🚀 Production Deployment
+
+Untuk menjalankan aplikasi di lingkungan production, ikuti langkah-langkah berikut:
+
+1. **Build aplikasi untuk release**
+```bash
+cargo build --release
+```
+
+2. **Jalankan migrasi database**
+```bash
+sqlx migrate run
+```
+
+3. **Jalankan aplikasi**
+```bash
+./target/release/rust-base
+```
+
+4. **Akses aplikasi di browser**
+Buka `http://your-server-ip:5000`
+
+## 🚀 Production Deployment
+
+### Quick Setup Scripts
+
+**Development Environment:**
+```bash
+# Linux/macOS
+chmod +x setup-dev.sh
+./setup-dev.sh
+
+# Windows
+setup-dev.bat
+```
+
+### Fly.io Deployment (Recommended)
+
+Deploy to Fly.io with PostgreSQL database:
+
+```bash
+# Quick deployment
+chmod +x deploy.sh
+./deploy.sh
+
+# Or Windows
+deploy.bat
+```
+
+**Manual Fly.io Setup:**
+```bash
+# 1. Install Fly.io CLI
+curl -L https://fly.io/install.sh | sh
+
+# 2. Login to Fly.io
+flyctl auth login
+
+# 3. Create app and database
+flyctl apps create rust-base-api
+flyctl postgres create --name rust-base-api-db
+flyctl postgres attach rust-base-api-db --app rust-base-api
+
+# 4. Set secrets
+flyctl secrets set JWT_SECRET="your-secret-key" --app rust-base-api
+
+# 5. Deploy
+flyctl deploy --app rust-base-api
+```
+
+**📖 Complete deployment guide:** [FLY_DEPLOYMENT.md](FLY_DEPLOYMENT.md)
+
+### GitHub Actions CI/CD
+
+Automated deployment on push to main branch:
+- ✅ Tests and linting
+- ✅ Security audit
+- ✅ Auto-deploy to Fly.io
+- ✅ Health checks
+
+See `.github/workflows/deploy.yml` for configuration.
+
+### Environment Variables (Production)
+
+```bash
+# Required
+DATABASE_URL=postgresql://...
+JWT_SECRET=your-super-secret-key
+
+# Optional
+HOST=0.0.0.0
+PORT=3000
+RUST_LOG=info
+```
+
+Use `.env.production.template` as a starting point.
+
+## 🐳 Docker Support
+
+### Multi-stage Production Build
+
+Optimized Docker image (~50MB) with security best practices:
+
+```bash
+# Build image
+docker build -t rust-base-api .
+
+# Run container
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://..." \
+  -e JWT_SECRET="your-secret" \
+  rust-base-api
+```
+
+### Docker Compose (Development)
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/rust_base
+      - JWT_SECRET=dev-secret-key
+    depends_on:
+      - db
+      
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=rust_base
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+Run with: `docker-compose up -d`
+
+### Build Docker Image
+```bash
+docker build -t rust-base .
+```
+
+### Jalankan Docker Container
+```bash
+docker run -d -p 5000:5000 --name rust-base-app rust-base
+```
+
+### Menghentikan dan Menghapus Container
+```bash
+docker stop rust-base-app
+docker rm rust-base-app
+```
+
+### Mengakses Docker Container
+```bash
+docker exec -it rust-base-app /bin/sh
+```
+
+Untuk informasi lebih lanjut tentang Docker, kunjungi [dokumen resmi Docker](https://docs.docker.com/).
+
 ## 🔧 Troubleshooting
 
 ### Error: Database Connection Failed

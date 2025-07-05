@@ -14,6 +14,7 @@ use crate::{
 pub async fn routes() -> Router<AppState> {
     Router::new()
         // Users routes
+        .route("/hi", get(|| async { "🚀 Hello, user login!" }))
         .route("/users", get(get_users).post(create_user))
         .route(
             "/users/{id}",
