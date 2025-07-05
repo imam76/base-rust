@@ -4,6 +4,12 @@ use uuid::Uuid;
 
 use sqlx::PgPool;
 
+pub mod user;
+pub mod contact;
+
+pub use user::*;
+pub use contact::*;
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: PgPool,
@@ -22,14 +28,6 @@ impl AuthenticatedUser {
     pub fn user_id(&self) -> Uuid {
         self.user_id
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct User {
-    pub id: Uuid,
-    pub username: String,
-    pub email: String,
-    pub password_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

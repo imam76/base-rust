@@ -1,7 +1,7 @@
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde_json::json;
 use tracing::info;
@@ -10,10 +10,13 @@ use tracing::info;
 pub enum AppError {
     UnhandledError(String),
     LoginFailed,
-    BadRequest,
+    BadRequest(String),
     DatabaseError(String),
     UnAuthorized,
     CookieFormatError,
+    NotFound { id: uuid::Uuid },
+    SerializationError(String),
+    InternalServerError(String),
 }
 
 pub type Result<T> = core::result::Result<T, AppError>;
@@ -33,11 +36,9 @@ macro_rules! error_response {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {
-            AppError::BadRequest => error_response!(
-                StatusCode::BAD_REQUEST,
-                "Bad Request",
-                "The request could not be understood by the server due to malformed syntax."
-            ),
+            AppError::BadRequest(details) => {
+                error_response!(StatusCode::BAD_REQUEST, "Bad Request", details)
+            }
             AppError::LoginFailed => error_response!(
                 StatusCode::UNAUTHORIZED,
                 "Login Failed",
@@ -63,6 +64,21 @@ impl IntoResponse for AppError {
                     details
                 )
             }
+            AppError::NotFound { id } => error_response!(
+                StatusCode::NOT_FOUND,
+                "Not Found",
+                format!("Resource with id {} not found", id)
+            ),
+            AppError::SerializationError(details) => error_response!(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Serialization Error",
+                details
+            ),
+            AppError::InternalServerError(details) => error_response!(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                details
+            ),
         }
     }
 }

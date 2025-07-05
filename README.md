@@ -262,6 +262,225 @@ CREATE TABLE account_subclassifications (
 );
 ```
 
+## 🏗️ Generic CRUD System
+
+This application features a robust, extensible, and reusable backend architecture with a generic query builder and CRUD service that supports:
+
+### Features
+- ✅ **Pagination**: `page`, `perPage` parameters
+- ✅ **Search**: Full-text search across specified fields
+- ✅ **Filtering**: JSON-based filtering with type-safe parameter binding
+- ✅ **Sorting**: Configurable sorting by allowed fields
+- ✅ **Field Selection**: Include/exclude fields (framework ready)
+- ✅ **SQL Injection Protection**: All queries use prepared statements
+- ✅ **Authentication**: Integrated with auth middleware
+- ✅ **Error Handling**: Comprehensive error types and responses
+
+### Architecture Components
+
+#### 1. Query Builder (`src/utils/query_builder.rs`)
+```rust
+// Example usage
+let query_builder = QueryBuilder::new("users")
+    .search_fields(vec!["name", "email"])
+    .filterable_fields(vec!["status", "role"])
+    .sortable_fields(vec!["name", "email", "created_at"]);
+
+let (query, args, page, per_page) = query_builder.build_query(&params);
+```
+
+#### 2. CRUD Service (`src/utils/crud_service.rs`)
+```rust
+// Generic CRUD operations
+let users = CrudService::get_list(pool, &query_builder, &params).await?;
+let user = CrudService::get_by_id(pool, &uuid, "users").await?;
+let new_user = CrudService::create(pool, "users", &data, &auth).await?;
+let updated = CrudService::update(pool, "users", &uuid, &data, &auth).await?;
+CrudService::delete(pool, "users", &uuid).await?;
+```
+
+#### 3. Handler Pattern (`src/handlers/users.rs`, `src/handlers/contacts.rs`)
+Each resource handler follows a consistent pattern:
+- **GET** `/resource` - List with pagination, search, filter, sort
+- **GET** `/resource/{id}` - Get single item by ID
+- **POST** `/resource` - Create new item (requires auth)
+- **PUT** `/resource/{id}` - Update item (requires auth)
+- **DELETE** `/resource/{id}` - Delete item (requires auth)
+
+### Adding New Resources
+
+To add a new resource (e.g., "products"):
+
+1. **Create the model** (`src/models/product.rs`):
+```rust
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct Product {
+    pub id: Uuid,
+    pub name: String,
+    pub price: f64,
+    pub category_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Uuid,
+    pub updated_by: Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateProductRequest {
+    pub name: String,
+    pub price: f64,
+    pub category_id: Option<Uuid>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateProductRequest {
+    pub name: Option<String>,
+    pub price: Option<f64>,
+    pub category_id: Option<Uuid>,
+}
+```
+
+2. **Create the handler** (`src/handlers/products.rs`):
+```rust
+use axum:{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::Json,
+};
+use uuid::Uuid;
+
+use crate:{
+    errors::{AppError, Result},
+    middlewares::auth_resolver_middleware::UserContext,
+    models::product::{Product, CreateProductRequest, UpdateProductRequest},
+    utils::{crud_service::CrudService, query_builder::QueryBuilder, query_builder::QueryParams},
+    AppState,
+};
+
+pub async fn get_products(
+    State(state): State<AppState>,
+    Query(params): Query<QueryParams>,
+) -> Result<Json<serde_json::Value>> {
+    let query_builder = QueryBuilder::new("products")
+        .search_fields(vec!["name"])
+        .filterable_fields(vec!["category_id"])
+        .sortable_fields(vec!["name", "price", "created_at"]);
+
+    let result = CrudService::get_list(&state.pool, &query_builder, &params).await?;
+    Ok(Json(result))
+}
+
+pub async fn get_product_by_id(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Product>> {
+    let product = CrudService::get_by_id(&state.pool, &id, "products").await?;
+    Ok(Json(product))
+}
+
+pub async fn create_product(
+    State(state): State<AppState>,
+    auth: UserContext,
+    Json(data): Json<CreateProductRequest>,
+) -> Result<(StatusCode, Json<Product>)> {
+    let product = CrudService::create(&state.pool, "products", &data, &auth).await?;
+    Ok((StatusCode::CREATED, Json(product)))
+}
+
+pub async fn update_product(
+    State(state): State<AppState>,
+    auth: UserContext,
+    Path(id): Path<Uuid>,
+    Json(data): Json<UpdateProductRequest>,
+) -> Result<Json<Product>> {
+    let product = CrudService::update(&state.pool, "products", &id, &data, &auth).await?;
+    Ok(Json(product))
+}
+
+pub async fn delete_product(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<StatusCode> {
+    CrudService::delete(&state.pool, "products", &id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+```
+
+3. **Add routes** (`src/routes/main.rs`):
+```rust
+use crate::handlers::products:{
+    create_product, delete_product, get_product_by_id, get_products, update_product,
+};
+
+// Add to the router
+.route("/products", get(get_products).post(create_product))
+.route(
+    "/products/{id}",
+    get(get_product_by_id).put(update_product).delete(delete_product),
+)
+```
+
+4. **Update module exports** (`src/models/mod.rs`, `src/handlers/mod.rs`).
+
+### API Query Examples
+
+```bash
+# Pagination
+GET /users?page=1&perPage=10
+
+# Search
+GET /users?search=john
+
+# Filtering (JSON)
+GET /users?filter={"status":"active","role":"admin"}
+
+# Sorting
+GET /users?sortBy=created_at&sortOrder=desc
+
+# Combined
+GET /users?page=1&perPage=5&search=admin&sortBy=email&sortOrder=asc&filter={"status":"active"}
+```
+
+### Testing the API
+
+Use the provided test script:
+```bash
+# Make the script executable
+chmod +x test_api.sh
+
+# Run tests
+./test_api.sh
+```
+
+Or test manually with curl:
+```bash
+# Health check
+curl http://127.0.0.1:5001/health
+
+# List users with pagination
+curl "http://127.0.0.1:5001/users?page=1&perPage=10"
+
+# Search users
+curl "http://127.0.0.1:5001/users?search=admin"
+```
+
+### Security Features
+- **SQL Injection Protection**: All database queries use prepared statements
+- **Authentication Middleware**: Protects write operations
+- **Input Validation**: Type-safe request/response models
+- **Error Handling**: Secure error responses without data leakage
+
+### Performance Features
+- **Connection Pooling**: PostgreSQL connection pool with SQLx
+- **Prepared Statements**: Efficient query execution
+- **Pagination**: Memory-efficient data retrieval
+- **Optimized Queries**: Minimal data transfer with field selection
+
+This architecture provides a solid foundation for building scalable REST APIs with consistent patterns, comprehensive functionality, and robust security.
 ## 🔧 Troubleshooting
 
 ### Error: Database Connection Failed

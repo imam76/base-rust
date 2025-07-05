@@ -31,7 +31,7 @@ pub async fn get_auth(
     body: Result<Json<LoginRequest>, JsonRejection>,
 ) -> Result<Response, AppError> {
     info!("-> HANDLER - api /auth");
-    let Json(body) = body.map_err(|_| AppError::BadRequest)?;
+    let Json(body) = body.map_err(|_| AppError::BadRequest("Invalid JSON".to_string()))?;
     let email = body.email.trim();
     info!("Login request: {:?}", body);
     // Here you would typically validate the credentials against a database
@@ -41,7 +41,8 @@ pub async fn get_auth(
     let record = sqlx::query_as!(
         User,
         r#"
-        SELECT id, username, email, password_hash
+        SELECT id, username, email, password_hash, first_name, last_name, 
+               is_active, is_verified, last_login_at, created_at, updated_at
         FROM users
         WHERE email = $1
         "#,
