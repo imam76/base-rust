@@ -31,7 +31,13 @@ CREATE TABLE contacts (
     is_salesman BOOLEAN NOT NULL DEFAULT false,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_by UUID,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by UUID,
+    
+    -- Foreign key constraints
+    CONSTRAINT fk_contacts_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+    CONSTRAINT fk_contacts_updated_by FOREIGN KEY (updated_by) REFERENCES users(id)
 );
 
 -- Create indexes for better performance

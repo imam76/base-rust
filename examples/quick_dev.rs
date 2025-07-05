@@ -11,21 +11,46 @@ async fn main() -> Result<()> {
     let req_login = hc.do_post(
         "/api/auth",
         json!({
-            "email": "demo1@dadang.com",
-            "password": "welcome123"
+            "email": "yqwhjahsdjhuuushdajshdjh@mailinator.com",
+            "password": "123123"
         }),
     );
     req_login.await?.print().await?;
 
-    let req_create_ticket = hc.do_post(
-        "/api/v1/hello",
-        json!({
-            "title": "Ticket AAA"
-        }),
-    );
-    req_create_ticket.await?.print().await?;
-
-    hc.do_get("/api/v1/hello").await?.print().await?;
+    // let req_create_contact = hc.do_post(
+    //     "/api/v1/contacts",
+    //     json!({
+    //         "first_name": "John",
+    //         "last_name": "Doe",
+    //         "email": "john.doe@example.com",
+    //         "phone": "+1-555-0123",
+    //         "mobile": "+1-555-0124",
+    //         "company": "Tech Solutions Inc",
+    //         "address_line1": "123 Main Street",
+    //         "address_line2": "Suite 100",
+    //         "city": "New York",
+    //         "state": "NY",
+    //         "postal_code": "10001",
+    //         "country": "United States",
+    //         "billing_address_line1": "123 Main Street",
+    //         "billing_address_line2": "Suite 100",
+    //         "billing_city": "New York",
+    //         "billing_state": "NY",
+    //         "billing_postal_code": "10001",
+    //         "billing_country": "United States",
+    //         "delivery_address_line1": "456 Oak Avenue",
+    //         "delivery_address_line2": "Floor 2",
+    //         "delivery_city": "Brooklyn",
+    //         "delivery_state": "NY",
+    //         "delivery_postal_code": "11201",
+    //         "delivery_country": "United States",
+    //         "is_customer": true,
+    //         "is_employee": false,
+    //         "is_supplier": false,
+    //         "is_active": true
+    //     }),
+    // );
+    // req_create_contact.await?.print().await?;
 
     Ok(())
 }

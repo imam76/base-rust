@@ -1,7 +1,12 @@
 use axum::{routing::post, Router};
 
-use crate::{handlers::auth::get_auth, models::AppState};
+use crate::{
+    handlers::auth::{login, logout},
+    models::AppState,
+};
 
 pub async fn routes() -> Router<AppState> {
-    Router::new().route("/api/auth", post(get_auth))
+    Router::new()
+        .route("/api/auth", post(login))
+        .route("/api/auth/logout", post(logout))
 }

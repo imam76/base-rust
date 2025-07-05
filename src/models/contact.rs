@@ -34,9 +34,9 @@ pub struct Contact {
     pub is_supplier: bool,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
-    pub created_by: Uuid,
+    pub created_by: Option<Uuid>,
     pub updated_at: DateTime<Utc>,
-    pub updated_by: Uuid,
+    pub updated_by: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,9 +135,9 @@ pub struct ContactResponse {
     pub is_supplier: bool,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
-    pub created_by: Uuid,
+    pub created_by: Option<Uuid>,
     pub updated_at: DateTime<Utc>,
-    pub updated_by: Uuid,
+    pub updated_by: Option<Uuid>,
 }
 
 impl From<Contact> for ContactResponse {

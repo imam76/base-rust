@@ -17,17 +17,21 @@ pub async fn start(
         .map(|cookie| cookie.value().to_string());
 
     match auth_token {
-        Some(token) => match parse_token(token) {
-            Ok(user_id) => {
-                req.extensions_mut().insert(AuthenticatedUser::new(user_id));
-                Ok(next.run(req).await)
+        Some(token) => {
+            info!("Found auth token: {}", token);
+            match parse_token(token) {
+                Ok(user_id) => {
+                    info!("Successfully parsed user_id: {}", user_id);
+                    req.extensions_mut().insert(AuthenticatedUser::new(user_id));
+                    Ok(next.run(req).await)
+                }
+                Err(e) => {
+                    info!("Invalid token found, removing cookie");
+                    cookies.remove(Cookie::build(AUTH_TOKEN).build());
+                    Err(e)
+                }
             }
-            Err(e) => {
-                info!("Invalid token found, removing cookie");
-                cookies.remove(Cookie::build(AUTH_TOKEN).build());
-                Err(e)
-            }
-        },
+        }
         None => {
             info!("No auth token found");
             Err(AppError::UnAuthorized)
@@ -36,16 +40,42 @@ pub async fn start(
 }
 
 fn parse_token(token: String) -> Result<Uuid, AppError> {
+    info!("Parsing token: {}", token);
+
     if token.is_empty() {
+        info!("Token is empty");
         return Err(AppError::UnAuthorized);
     }
 
+    // Token format: "user-{uuid}.exp.sign"
     let parts: Vec<&str> = token.split('.').collect();
-    if parts.len() != 4 {
+    info!("Token parts: {:?} (count: {})", parts, parts.len());
+
+    if parts.len() != 3 {
+        info!("Expected 3 parts, got {}", parts.len());
         return Err(AppError::UnAuthorized);
     }
 
-    let user_id_str = parts[1];
+    // Extract user ID from the first part: "user-{uuid}"
+    let user_part = parts[0];
+    info!("User part: {}", user_part);
 
-    Uuid::parse_str(user_id_str).map_err(|_| AppError::UnAuthorized)
+    if !user_part.starts_with("user-") {
+        info!("User part doesn't start with 'user-'");
+        return Err(AppError::UnAuthorized);
+    }
+
+    let user_id_str = &user_part[5..]; // Remove "user-" prefix
+    info!("Extracted user_id_str: {}", user_id_str);
+
+    match Uuid::parse_str(user_id_str) {
+        Ok(uuid) => {
+            info!("Successfully parsed UUID: {}", uuid);
+            Ok(uuid)
+        }
+        Err(e) => {
+            info!("Failed to parse UUID: {}", e);
+            Err(AppError::UnAuthorized)
+        }
+    }
 }

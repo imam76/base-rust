@@ -10,7 +10,9 @@ CREATE TABLE users (
     is_verified BOOLEAN NOT NULL DEFAULT false,
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_by UUID,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_by UUID
 );
 
 -- Create indexes for better performance

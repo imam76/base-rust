@@ -14,7 +14,9 @@ pub struct User {
     pub is_verified: bool,
     pub last_login_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    pub created_by: Option<Uuid>,
     pub updated_at: DateTime<Utc>,
+    pub updated_by: Option<Uuid>,
 }
 
 #[derive(Debug, Deserialize)]
