@@ -1,9 +1,12 @@
-use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+use axum::{body::Body, extract::Request, http::HeaderMap, middleware::Next, response::Response};
 use tower_cookies::{Cookie, Cookies};
 use tracing::info;
-use uuid::Uuid;
 
-use crate::{models::AuthenticatedUser, utils::constants::AUTH_TOKEN, AppError};
+use crate::{
+    models::AuthenticatedUser,
+    utils::{constants::AUTH_TOKEN, JwtService},
+    AppError,
+};
 
 pub async fn start(
     cookies: Cookies,
@@ -12,70 +15,47 @@ pub async fn start(
 ) -> Result<Response, AppError> {
     info!("AUTH MIDDLEWARE - {}", req.uri().path());
 
-    let auth_token = cookies
-        .get(AUTH_TOKEN)
-        .map(|cookie| cookie.value().to_string());
+    // Try to get token from cookie first, then from Authorization header
+    let token = get_token_from_request(&cookies, req.headers());
 
-    match auth_token {
-        Some(token) => {
-            info!("Found auth token: {}", token);
-            match parse_token(token) {
-                Ok(user_id) => {
-                    info!("Successfully parsed user_id: {}", user_id);
+    match token {
+        Some(jwt_token) => {
+            info!("Found JWT token");
+            match JwtService::validate_token(&jwt_token) {
+                Ok(claims) => {
+                    info!("Successfully validated JWT for user: {}", claims.username);
+                    let user_id = claims.user_id()?;
                     req.extensions_mut().insert(AuthenticatedUser::new(user_id));
                     Ok(next.run(req).await)
                 }
                 Err(e) => {
-                    info!("Invalid token found, removing cookie");
+                    info!("Invalid JWT token, removing cookie");
                     cookies.remove(Cookie::build(AUTH_TOKEN).build());
                     Err(e)
                 }
             }
         }
         None => {
-            info!("No auth token found");
+            info!("No JWT token found");
             Err(AppError::UnAuthorized)
         }
     }
 }
 
-fn parse_token(token: String) -> Result<Uuid, AppError> {
-    info!("Parsing token: {}", token);
-
-    if token.is_empty() {
-        info!("Token is empty");
-        return Err(AppError::UnAuthorized);
+fn get_token_from_request(cookies: &Cookies, headers: &HeaderMap) -> Option<String> {
+    // First try to get token from cookie
+    if let Some(cookie_token) = cookies.get(AUTH_TOKEN) {
+        return Some(cookie_token.value().to_string());
     }
 
-    // Token format: "user-{uuid}.exp.sign"
-    let parts: Vec<&str> = token.split('.').collect();
-    info!("Token parts: {:?} (count: {})", parts, parts.len());
-
-    if parts.len() != 3 {
-        info!("Expected 3 parts, got {}", parts.len());
-        return Err(AppError::UnAuthorized);
-    }
-
-    // Extract user ID from the first part: "user-{uuid}"
-    let user_part = parts[0];
-    info!("User part: {}", user_part);
-
-    if !user_part.starts_with("user-") {
-        info!("User part doesn't start with 'user-'");
-        return Err(AppError::UnAuthorized);
-    }
-
-    let user_id_str = &user_part[5..]; // Remove "user-" prefix
-    info!("Extracted user_id_str: {}", user_id_str);
-
-    match Uuid::parse_str(user_id_str) {
-        Ok(uuid) => {
-            info!("Successfully parsed UUID: {}", uuid);
-            Ok(uuid)
-        }
-        Err(e) => {
-            info!("Failed to parse UUID: {}", e);
-            Err(AppError::UnAuthorized)
+    // Then try to get token from Authorization header (Bearer token)
+    if let Some(auth_header) = headers.get("Authorization") {
+        if let Ok(auth_str) = auth_header.to_str() {
+            if auth_str.starts_with("Bearer ") {
+                return Some(auth_str[7..].to_string()); // Remove "Bearer " prefix
+            }
         }
     }
+
+    None
 }

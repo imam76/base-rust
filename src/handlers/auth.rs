@@ -12,7 +12,7 @@ use tracing::info;
 
 use crate::{
     models::{AppState, User},
-    utils::constants::AUTH_TOKEN,
+    utils::{constants::AUTH_TOKEN, JwtService},
     AppError,
 };
 
@@ -20,6 +20,8 @@ use crate::{
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    #[serde(default)]
+    pub use_cookie: Option<bool>, // Optional: specify if you want cookie-based auth
 }
 
 pub async fn login(
@@ -48,7 +50,7 @@ pub async fn login(
         .map_err(|e| AppError::UnhandledError(e.to_string()))?;
 
     if is_valid {
-        handle_successful_login(&cookies, &user, email).await
+        handle_successful_login(&cookies, &user, email, body.use_cookie).await
     } else {
         handle_failed_login(&cookies, email).await
     }
@@ -81,15 +83,27 @@ async fn handle_successful_login(
     cookies: &Cookies,
     user: &User,
     email: &str,
+    use_cookie: Option<bool>,
 ) -> Result<Response, AppError> {
     info!("Password is valid for user: {}", email);
 
-    let auth_token = format!("user-{}.exp.sign", user.id);
-    cookies.add(Cookie::new(AUTH_TOKEN, auth_token));
+    // Generate JWT token
+    let jwt_token = JwtService::generate_token(user.id, user.username.clone(), user.email.clone())?;
+
+    if use_cookie.unwrap_or(true) {
+        // Default to using cookies
+        // Set JWT as HTTP-only cookie for security
+        let mut cookie = Cookie::new(AUTH_TOKEN, jwt_token.clone());
+        cookie.set_http_only(true);
+        cookie.set_secure(false); // Set to true in production with HTTPS
+        cookie.set_path("/");
+        cookies.add(cookie);
+    }
 
     let response_body = json!({
         "success": true,
         "message": "Login successful",
+        "token": jwt_token, // Also return token in response for API clients
         "user": {
             "id": user.id,
             "username": user.username,
@@ -116,6 +130,59 @@ pub async fn logout(cookies: Cookies) -> Result<Response, AppError> {
 
     let response_body = json!({
         "message": "Logout successful"
+    });
+
+    Ok((StatusCode::OK, Json(response_body)).into_response())
+}
+
+pub async fn refresh_token(
+    cookies: Cookies,
+    State(state): State<AppState>,
+) -> Result<Response, AppError> {
+    info!("-> HANDLER - POST /auth/refresh");
+
+    // Get current token from cookie
+    let current_token = cookies
+        .get(AUTH_TOKEN)
+        .map(|cookie| cookie.value().to_string())
+        .ok_or(AppError::UnAuthorized)?;
+
+    // Validate current token
+    let claims = JwtService::validate_token(&current_token)?;
+    let _user_id = claims.user_id()?; // Validate user_id format
+
+    // Get fresh user data from database
+    let user = get_user_by_email(&state, &claims.email).await?;
+
+    // Check if user is still active
+    if !user.is_active {
+        info!("Refresh attempt for inactive user: {}", claims.email);
+        return Err(AppError::UnAuthorized);
+    }
+
+    // Generate new JWT token
+    let new_jwt_token =
+        JwtService::generate_token(user.id, user.username.clone(), user.email.clone())?;
+
+    // Set new JWT as HTTP-only cookie
+    let mut cookie = Cookie::new(AUTH_TOKEN, new_jwt_token.clone());
+    cookie.set_http_only(true);
+    cookie.set_secure(false); // Set to true in production with HTTPS
+    cookie.set_path("/");
+    cookies.add(cookie);
+
+    let response_body = json!({
+        "success": true,
+        "message": "Token refreshed successfully",
+        "token": new_jwt_token,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_verified": user.is_verified
+        }
     });
 
     Ok((StatusCode::OK, Json(response_body)).into_response())
