@@ -31,6 +31,9 @@ logs/
 
 # Docker
 .dockerignore
+# kebutuhan saat ini di ignore
+Dockerfile 
+docker-compose.yml
 
 # Backup files
 *.bak
