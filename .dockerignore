@@ -1,0 +1,19 @@
+# Build artifacts
+target/
+
+# Git and VS Code
+.git/
+.vscode/
+
+# Environment files (use secrets instead)
+.env
+.env.example
+
+# Documentation and scripts
+*.md
+test_*.sh
+setup-dev.*
+deploy.*
+
+# Fly.io config (handled separately)
+fly.toml
