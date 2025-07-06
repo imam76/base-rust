@@ -1675,7 +1675,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-base-1"
+name = "rust-base"
 version = "0.1.0"
 dependencies = [
  "anyhow",

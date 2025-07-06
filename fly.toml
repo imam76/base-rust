@@ -1,76 +1,70 @@
-# fly.toml app configuration file for rust-base Axum API
+# fly.toml app configuration file generated for rust-base on 2025-07-06T17:45:14+07:00
+#
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "rust-base-api"
-primary_region = "sin"  # Singapore region (change as needed)
-kill_signal = "SIGINT"
-kill_timeout = "5s"
+app = 'rust-base'
+primary_region = 'sin'
+kill_signal = 'SIGINT'
+kill_timeout = '5s'
 
 [experimental]
   auto_rollback = true
 
 [build]
-  dockerfile = "Dockerfile"
-
-[deploy]
-  release_command = "sqlx migrate run"  # Run migrations on deploy
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "3000"
-  RUST_LOG = "info"
+  DEBUG = 'true'
+  ENVIRONMENT = 'development'
+  PORT = '5001'
 
 [http_service]
-  internal_port = 3000
+  internal_port = 5001
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
+  processes = ['app']
 
   [[http_service.checks]]
-    interval = "15s"
-    grace_period = "5s"
-    method = "GET"
-    path = "/health"
-    protocol = "http"
-    timeout = "2s"
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '5s'
+    method = 'GET'
+    path = '/health'
+    protocol = 'http'
     tls_skip_verify = false
 
 [[services]]
-  protocol = "tcp"
-  internal_port = 3000
-  processes = ["app"]
+  protocol = 'tcp'
+  internal_port = 5001
+  processes = ['app']
 
   [[services.ports]]
     port = 80
-    handlers = ["http"]
+    handlers = ['http']
     force_https = true
 
   [[services.ports]]
     port = 443
-    handlers = ["tls", "http"]
-  
+    handlers = ['tls', 'http']
+
   [[services.tcp_checks]]
-    interval = "15s"
-    timeout = "2s"
-    grace_period = "1s"
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '1s'
 
   [[services.http_checks]]
-    interval = "10s"
-    timeout = "2s"
-    grace_period = "5s"
-    method = "get"
-    path = "/health"
-    protocol = "http"
+    interval = '10s'
+    timeout = '2s'
+    grace_period = '5s'
+    method = 'get'
+    path = '/health'
+    protocol = 'http'
     tls_skip_verify = false
 
-# VM Configuration
-[vm]
-  cpu_kind = "shared"
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 512
-
-# Scaling configuration
-[scaling]
-  min_machines_running = 0
-  max_machines_running = 3
