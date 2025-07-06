@@ -6,6 +6,9 @@ description = "Rust Axum Backend with Query Builder, Authentication, and Contact
 authors = ["Your Name <your.email@example.com>"]
 license = "MIT"
 
+[package.metadata.sqlx]
+offline = true
+
 [dependencies]
 axum = {version ="0.8.4"}
 bcrypt = "0.17.0"

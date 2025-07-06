@@ -7,6 +7,13 @@ WORKDIR /app
 # copy over your manifests
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY ./env ./.env
+
+ENV DATABASE_URL=postgres://username:password@localhost:5432/database_name
+ENV PORT=5001
+ENV JWT_SECRET=your_jwt_secret_key_here
+ENV ENVIRONMENT=development
+ENV DEBUG=true
 
 RUN cargo build --release
 
