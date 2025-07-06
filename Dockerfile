@@ -7,7 +7,6 @@ WORKDIR /app
 # copy over your manifests
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-COPY .env ./.env
 
 COPY .sqlx /app/.sqlx
 COPY . /app
