@@ -56,7 +56,7 @@ cargo build
 Buat file `.env` di root project:
 ```env
 DATABASE_URL=postgresql://username:password@localhost/rust_base_db
-PORT=5000
+PORT=5001
 RUST_LOG=info
 ```
 
@@ -120,7 +120,7 @@ cargo build --release
 ./target/release/rust-base
 ```
 
-Aplikasi akan berjalan di: `http://127.0.0.1:5000`
+Aplikasi akan berjalan di: `http://127.0.0.1:5001`
 
 ## 🔌 API Endpoints
 
@@ -141,7 +141,7 @@ Aplikasi akan berjalan di: `http://127.0.0.1:5000`
 ### 1. Test Koneksi Aplikasi
 ```bash
 # Test apakah aplikasi berjalan
-curl http://localhost:5000/
+curl http://localhost:5001/
 
 # Response: "Hello, world!"
 ```
@@ -149,7 +149,7 @@ curl http://localhost:5000/
 ### 2. Ambil Data Users
 ```bash
 # GET request untuk mengambil semua users
-curl http://localhost:5000/api/v1/users
+curl http://localhost:5001/api/v1/users
 
 # Response example:
 # [
@@ -165,7 +165,7 @@ curl http://localhost:5000/api/v1/users
 ### 3. Buat Account Subclassification Baru
 ```bash
 # POST request dengan JSON data
-curl -X POST http://localhost:5000/api/v1/account_subclassifications \
+curl -X POST http://localhost:5001/api/v1/account_subclassifications \
   -H "Content-Type: application/json" \
   -d '{
     "code": "ASC001",
@@ -184,7 +184,7 @@ curl -X POST http://localhost:5000/api/v1/account_subclassifications \
 ### 4. Ambil Account Subclassifications
 ```bash
 # GET request untuk mengambil semua account subclassifications
-curl http://localhost:5000/api/v1/account_subclassifications
+curl http://localhost:5001/api/v1/account_subclassifications
 
 # Response example:
 # [
@@ -504,7 +504,7 @@ sqlx migrate run
 ```
 
 4. **Akses aplikasi di browser**
-Buka `http://your-server-ip:5000`
+Buka `http://your-server-ip:5001`
 
 ## 🚀 Production Deployment
 
@@ -597,38 +597,6 @@ docker run -p 3000:3000 \
   rust-base-api
 ```
 
-### Docker Compose (Development)
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  api:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/rust_base
-      - JWT_SECRET=dev-secret-key
-    depends_on:
-      - db
-      
-  db:
-    image: postgres:15
-    environment:
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=rust_base
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
-
-Run with: `docker-compose up -d`
-
 ### Build Docker Image
 ```bash
 docker build -t rust-base .
@@ -636,7 +604,7 @@ docker build -t rust-base .
 
 ### Jalankan Docker Container
 ```bash
-docker run -d -p 5000:5000 --name rust-base-app rust-base
+docker run -d -p 5001:5001 --name rust-base-app rust-base
 ```
 
 ### Menghentikan dan Menghapus Container
@@ -679,8 +647,8 @@ sqlx migrate run
 PORT=5001
 
 # Atau kill process yang menggunakan port
-lsof -ti:5000 | xargs kill -9  # MacOS/Linux
-netstat -ano | findstr :5000   # Windows
+lsof -ti:5001 | xargs kill -9  # MacOS/Linux
+netstat -ano | findstr :5001   # Windows
 ```
 
 ### Error: Compilation Failed

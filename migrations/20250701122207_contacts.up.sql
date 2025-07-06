@@ -1,4 +1,4 @@
--- Create contacts table with role flags
+-- Create contacts table with comprehensive fields
 CREATE TABLE contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name VARCHAR(100) NOT NULL,
@@ -64,11 +64,6 @@ CREATE TRIGGER trigger_contacts_updated_at
 INSERT INTO contacts (first_name, last_name, email, phone, company, is_employee, is_salesman) VALUES
 ('John', 'Doe', 'john.doe@company.com', '555-0101', 'ABC Corp', true, true),
 ('Jane', 'Smith', 'jane.smith@supplier.com', '555-0102', 'Supplier Inc', false, false);
-
-UPDATE contacts SET is_supplier = true WHERE email = 'jane.smith@supplier.com';
-
-INSERT INTO contacts (first_name, last_name, email, phone, company, is_customer) VALUES
-('Mike', 'Johnson', 'mike@customer.com', '555-0103', 'Customer LLC', true);
 
 -- Add comments for documentation
 COMMENT ON TABLE contacts IS 'Contact management table with role flags';
