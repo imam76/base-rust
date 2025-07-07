@@ -22,7 +22,7 @@ Create `.env` file:
 ```env
 DATABASE_URL=postgresql://username:password@localhost/rust_base_db
 JWT_SECRET=your-super-secret-jwt-key-here
-PORT=3000
+PORT=5001
 RUST_LOG=info
 ```
 
@@ -54,7 +54,7 @@ cargo watch -x run
 cargo run --release
 ```
 
-App runs at: `http://localhost:3000`
+App runs at: `http://localhost:5001`
 
 ## 📡 API Endpoints
 
@@ -93,6 +93,35 @@ GET /api/v1/users?filter={"is_active":true}
 GET /api/v1/users?sortBy=created_at&sortOrder=desc
 ```
 
+### Response Format
+All list endpoints return data in this format:
+```json
+{
+    "count": 12,
+    "page_context": {
+        "page": 1,
+        "per_page": 10,
+        "total_pages": 2
+    },
+    "links": {
+        "first": "/api/v1/users?page=1&perPage=10",
+        "previous": null,
+        "next": "/api/v1/users?page=2&perPage=10",
+        "last": "/api/v1/users?page=2&perPage=10"
+    },
+    "results": [
+        {
+            "id": "uuid",
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john@example.com",
+            "is_active": true,
+            "created_at": "2024-01-01T00:00:00Z"
+        }
+    ]
+}
+```
+
 ## 🐳 Docker
 
 ```bash
@@ -101,7 +130,7 @@ docker-compose up --build
 
 # Or build manually
 docker build -t rust-base .
-docker run -p 3000:3000 -e DATABASE_URL="..." -e JWT_SECRET="..." rust-base
+docker run -p 5001:5001 -e DATABASE_URL="..." -e JWT_SECRET="..." rust-base
 ```
 
 ## 🚀 Deployment
@@ -173,6 +202,28 @@ sqlx database drop && sqlx database create && sqlx migrate run
 ```bash
 # Change PORT in .env file
 PORT=3001
+```
+
+### Include Related Data
+
+Load related data using the `include` parameter:
+
+```bash
+# Include created and updated user info
+GET /api/v1/contacts?include=created_user,updated_user
+
+# Combine with search and pagination
+GET /api/v1/contacts?search_fields=first_name&search_value=john&include=created_user&page=1&perPage=10
+```
+
+**Setup include relations in handlers:**
+```rust
+let includes = vec![
+    ("created_user", "LEFT JOIN users created_user ON contacts.created_by = created_user.id", 
+     vec!["created_user.id as created_user_id", "created_user.first_name as created_user_name"]),
+];
+
+CrudService::get_list_with_includes(table, fields, includes, query, state, auth).await
 ```
 
 ---

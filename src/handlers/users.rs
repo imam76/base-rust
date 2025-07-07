@@ -53,20 +53,23 @@ pub async fn get_users(
         JOINS.to_vec(),
         query,
         state,
+        "/api/v1/users",
         Some(auth),
     )
     .await?;
 
     // Convert User to UserResponse
     let converted_data: Vec<UserResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|user| user.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
 
@@ -153,19 +156,22 @@ pub async fn get_all_users(
         JOINS.to_vec(),
         query,
         state,
+        "/api/v1/users/all",
         None, // No auth required for backward compatibility
     )
     .await?;
 
     // Convert User to UserResponse
     let converted_data: Vec<UserResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|user| user.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }

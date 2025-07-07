@@ -86,29 +86,52 @@ pub async fn get_contacts(
     state: State<AppState>,
     auth: Extension<AuthenticatedUser>,
 ) -> Result<Json<PaginatedResponse<ContactResponse>>, AppError> {
-    let Json(response_data) = CrudService::get_list::<Contact>(
+    let includes = vec![
+        (
+            "created_user",
+            "LEFT JOIN users created_user ON contacts.created_by = created_user.id",
+            vec![
+                "created_user.id as created_user_id",
+                "created_user.first_name as created_user_name",
+            ],
+        ),
+        (
+            "updated_user",
+            "LEFT JOIN users updated_user ON contacts.updated_by = updated_user.id",
+            vec![
+                "updated_user.id as updated_user_id",
+                "updated_user.first_name as updated_user_name",
+            ],
+        ),
+    ];
+
+    let Json(response_data) = CrudService::get_list_with_includes::<Contact>(
         TABLE,
         SELECT_FIELDS.to_vec(),
         SEARCHABLE_FIELDS.to_vec(),
         FILTERABLE_FIELDS.to_vec(),
         SORTABLE_FIELDS.to_vec(),
         JOINS.to_vec(),
+        includes,
         query,
         state,
+        "/api/v1/contacts",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
 
@@ -224,20 +247,23 @@ pub async fn get_customers(
         JOINS.to_vec(),
         Query(params),
         state,
+        "/api/v1/contacts/customers",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
 
@@ -261,19 +287,22 @@ pub async fn get_suppliers(
         JOINS.to_vec(),
         Query(params),
         state,
+        "/api/v1/contacts/suppliers",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }

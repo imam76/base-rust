@@ -1,19 +1,65 @@
-use axum::{Extension, extract::{Query, State, Path}, Json, response::{Response, IntoResponse}, http::StatusCode};
-use serde::{Serialize, de::DeserializeOwned};
-use sqlx::{postgres::PgArguments, Arguments, Row, Column};
-use uuid::Uuid;
-use std::collections::HashMap;
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Extension, Json,
+};
 use chrono::{DateTime, Utc};
+use serde::{de::DeserializeOwned, Serialize};
+use sqlx::{postgres::PgArguments, Arguments, Column, Row};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 use crate::{
     models::{AppState, AuthenticatedUser},
-    utils::query_builder::{QueryBuilder, QueryParams, PaginatedResponse},
+    utils::query_builder::{PaginatedResponse, QueryBuilder, QueryParams},
     AppError,
 };
 
 pub struct CrudService;
 
 impl CrudService {
+    // Generic GET handler with include relations support
+    pub async fn get_list_with_includes<T>(
+        table: &str,
+        select_fields: Vec<&str>,
+        searchable_fields: Vec<&str>,
+        filterable_fields: Vec<&str>,
+        sortable_fields: Vec<&str>,
+        joins: Vec<&str>,
+        includes: Vec<(&str, &str, Vec<&str>)>, // (name, join_clause, select_fields)
+        query: Query<QueryParams>,
+        state: State<AppState>,
+        base_url: &str,
+        _auth: Option<Extension<AuthenticatedUser>>,
+    ) -> Result<Json<PaginatedResponse<T>>, AppError>
+    where
+        T: DeserializeOwned + Send + Unpin,
+    {
+        let mut builder = QueryBuilder::new(table)
+            .select(select_fields)
+            .searchable(searchable_fields)
+            .filterable(filterable_fields)
+            .sortable(sortable_fields);
+
+        // Add static joins
+        for join in joins {
+            builder = builder.join(join);
+        }
+
+        // Add include relations
+        for (name, join_clause, include_fields) in includes {
+            builder = builder.include_relation(name, join_clause, include_fields);
+        }
+
+        let result = builder
+            .execute_with_base_url(&state.db, &query.0, base_url)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(Json(result))
+    }
+
     // Generic GET handler for any table
     pub async fn get_list<T>(
         table: &str,
@@ -24,6 +70,7 @@ impl CrudService {
         joins: Vec<&str>,
         query: Query<QueryParams>,
         state: State<AppState>,
+        base_url: &str,
         _auth: Option<Extension<AuthenticatedUser>>, // Optional auth
     ) -> Result<Json<PaginatedResponse<T>>, AppError>
     where
@@ -41,7 +88,7 @@ impl CrudService {
         }
 
         let result = builder
-            .execute(&state.db, &query.0)
+            .execute_with_base_url(&state.db, &query.0, base_url)
             .await
             .map_err(|e| AppError::DatabaseError(e.to_string()))?;
 
@@ -62,7 +109,7 @@ impl CrudService {
     {
         let select_clause = select_fields.join(", ");
         let joins_clause = joins.join(" ");
-        
+
         let query = format!(
             "SELECT {} FROM {} {} WHERE {}.id = $1",
             select_clause, table, joins_clause, table
@@ -103,7 +150,7 @@ impl CrudService {
         // Convert create data to HashMap for dynamic insert
         let data_value = serde_json::to_value(&create_data.0)
             .map_err(|e| AppError::SerializationError(e.to_string()))?;
-        
+
         let data_map: HashMap<String, serde_json::Value> = serde_json::from_value(data_value)
             .map_err(|e| AppError::SerializationError(e.to_string()))?;
 
@@ -128,10 +175,15 @@ impl CrudService {
         // Add dynamic fields
         let mut param_count = 4;
         for (key, value) in data_map {
-            if key != "id" && key != "created_by" && key != "updated_by" && key != "created_at" && key != "updated_at" {
+            if key != "id"
+                && key != "created_by"
+                && key != "updated_by"
+                && key != "created_at"
+                && key != "updated_at"
+            {
                 columns.push(key.clone());
                 placeholders.push(format!("${}", param_count));
-                
+
                 match value {
                     serde_json::Value::String(s) => {
                         let _ = args.add(s);
@@ -200,7 +252,7 @@ impl CrudService {
         // Convert update data to HashMap for dynamic update
         let data_value = serde_json::to_value(&update_data.0)
             .map_err(|e| AppError::SerializationError(e.to_string()))?;
-        
+
         let data_map: HashMap<String, serde_json::Value> = serde_json::from_value(data_value)
             .map_err(|e| AppError::SerializationError(e.to_string()))?;
 
@@ -220,9 +272,14 @@ impl CrudService {
         // Add dynamic fields
         let mut param_count = 2;
         for (key, value) in data_map {
-            if key != "id" && key != "created_by" && key != "updated_by" && key != "created_at" && key != "updated_at" {
+            if key != "id"
+                && key != "created_by"
+                && key != "updated_by"
+                && key != "created_at"
+                && key != "updated_at"
+            {
                 set_clauses.push(format!("{} = ${}", key, param_count));
-                
+
                 match value {
                     serde_json::Value::String(s) => {
                         let _ = args.add(s);
@@ -288,7 +345,7 @@ impl CrudService {
         _auth: Extension<AuthenticatedUser>,
     ) -> Result<Response, AppError> {
         let query = format!("DELETE FROM {} WHERE id = $1", table);
-        
+
         let result = sqlx::query(&query)
             .bind(*id)
             .execute(&state.db)
@@ -304,14 +361,15 @@ impl CrudService {
 
     // Helper function to convert row values to JSON
     fn row_value_to_json(row: &sqlx::postgres::PgRow, column_name: &str) -> serde_json::Value {
-        let column = row.columns()
+        let column = row
+            .columns()
             .iter()
             .find(|c| c.name() == column_name)
             .unwrap();
 
         // Use ordinal to access column
         let ordinal = column.ordinal();
-        
+
         // Try different types based on common PostgreSQL types
         if let Ok(value) = row.try_get::<String, _>(ordinal) {
             return serde_json::Value::String(value);
@@ -339,7 +397,7 @@ impl CrudService {
         if let Ok(value) = row.try_get::<serde_json::Value, _>(ordinal) {
             return value;
         }
-        
+
         serde_json::Value::Null
     }
 }
