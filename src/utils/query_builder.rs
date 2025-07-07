@@ -45,18 +45,25 @@ impl Default for QueryParams {
 
 #[derive(Debug, Serialize)]
 pub struct PaginatedResponse<T> {
-    pub data: Vec<T>,
-    pub pagination: PaginationMeta,
+    pub count: u64,
+    pub page_context: PageContext,
+    pub links: PaginationLinks,
+    pub results: Vec<T>,
 }
 
 #[derive(Debug, Serialize)]
-pub struct PaginationMeta {
-    pub current_page: u32,
+pub struct PageContext {
+    pub page: u32,
     pub per_page: u32,
-    pub total: u64,
     pub total_pages: u32,
-    pub has_next: bool,
-    pub has_prev: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PaginationLinks {
+    pub first: String,
+    pub previous: Option<String>,
+    pub next: Option<String>,
+    pub last: String,
 }
 
 pub struct QueryBuilder {
@@ -127,6 +134,46 @@ impl QueryBuilder {
             },
         );
         self
+    }
+
+    fn generate_pagination_links(
+        &self,
+        page: u32,
+        total_pages: u32,
+        per_page: u32,
+        base_url: &str,
+    ) -> PaginationLinks {
+        let first = format!("{}?page=1&perPage={}", base_url, per_page);
+        let last = format!("{}?page={}&perPage={}", base_url, total_pages, per_page);
+
+        let previous = if page > 1 {
+            Some(format!(
+                "{}?page={}&perPage={}",
+                base_url,
+                page - 1,
+                per_page
+            ))
+        } else {
+            None
+        };
+
+        let next = if page < total_pages {
+            Some(format!(
+                "{}?page={}&perPage={}",
+                base_url,
+                page + 1,
+                per_page
+            ))
+        } else {
+            None
+        };
+
+        PaginationLinks {
+            first,
+            previous,
+            next,
+            last,
+        }
     }
 
     pub fn build_query(&self, params: &QueryParams) -> (String, PgArguments, u32, u32) {
@@ -480,6 +527,19 @@ impl QueryBuilder {
     where
         T: for<'r> serde::de::Deserialize<'r> + Send + Unpin,
     {
+        self.execute_with_base_url(pool, params, "/api/v1/data")
+            .await
+    }
+
+    pub async fn execute_with_base_url<T>(
+        &self,
+        pool: &PgPool,
+        params: &QueryParams,
+        base_url: &str,
+    ) -> Result<PaginatedResponse<T>, sqlx::Error>
+    where
+        T: for<'r> serde::de::Deserialize<'r> + Send + Unpin,
+    {
         let (count_query, count_args) = self.build_count_query(params);
         let (query, args, page, per_page) = self.build_query(params);
 
@@ -515,16 +575,17 @@ impl QueryBuilder {
 
         let total_pages = (total as f64 / per_page as f64).ceil() as u32;
 
+        let links = self.generate_pagination_links(page, total_pages, per_page, base_url);
+
         Ok(PaginatedResponse {
-            data,
-            pagination: PaginationMeta {
-                current_page: page,
+            count: total,
+            page_context: PageContext {
+                page,
                 per_page,
-                total,
                 total_pages,
-                has_next: page < total_pages,
-                has_prev: page > 1,
             },
+            links,
+            results: data,
         })
     }
 

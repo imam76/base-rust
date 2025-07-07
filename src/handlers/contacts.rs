@@ -115,20 +115,23 @@ pub async fn get_contacts(
         includes,
         query,
         state,
+        "/api/v1/contacts",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
 
@@ -244,20 +247,23 @@ pub async fn get_customers(
         JOINS.to_vec(),
         Query(params),
         state,
+        "/api/v1/contacts/customers",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
 
@@ -281,19 +287,22 @@ pub async fn get_suppliers(
         JOINS.to_vec(),
         Query(params),
         state,
+        "/api/v1/contacts/suppliers",
         Some(auth),
     )
     .await?;
 
     // Convert Contact to ContactResponse
     let converted_data: Vec<ContactResponse> = response_data
-        .data
+        .results
         .into_iter()
         .map(|contact| contact.into())
         .collect();
 
     Ok(Json(PaginatedResponse {
-        data: converted_data,
-        pagination: response_data.pagination,
+        count: response_data.count,
+        page_context: response_data.page_context,
+        links: response_data.links,
+        results: converted_data,
     }))
 }
