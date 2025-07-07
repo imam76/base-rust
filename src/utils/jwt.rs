@@ -8,12 +8,12 @@ use crate::AppError;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,        // Subject (user ID)
-    pub username: String,   // Username
-    pub email: String,      // Email
-    pub iat: i64,          // Issued at
-    pub exp: i64,          // Expiry time
-    pub iss: String,       // Issuer
+    pub sub: String,      // Subject (user ID)
+    pub username: String, // Username
+    pub email: String,    // Email
+    pub iat: i64,         // Issued at
+    pub exp: i64,         // Expiry time
+    pub iss: String,      // Issuer
 }
 
 impl Claims {
@@ -40,15 +40,18 @@ pub struct JwtService;
 
 impl JwtService {
     fn get_secret() -> String {
-        env::var("JWT_SECRET").unwrap_or_else(|_| {
-            "your-super-secret-jwt-key-change-this-in-production".to_string()
-        })
+        env::var("JWT_SECRET")
+            .unwrap_or_else(|_| "your-super-secret-jwt-key-change-this-in-production".to_string())
     }
 
-    pub fn generate_token(user_id: Uuid, username: String, email: String) -> Result<String, AppError> {
+    pub fn generate_token(
+        user_id: Uuid,
+        username: String,
+        email: String,
+    ) -> Result<String, AppError> {
         let claims = Claims::new(user_id, username, email);
         let secret = Self::get_secret();
-        
+
         encode(
             &Header::default(),
             &claims,

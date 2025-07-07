@@ -17,6 +17,9 @@ async fn main() -> Result<()> {
     );
     req_login.await?.print().await?;
 
+    let get_contacts = hc.do_get("/api/v1/contacts").await?;
+    get_contacts.print().await?;
+
     // let req_create_contact = hc.do_post(
     //     "/api/v1/contacts",
     //     json!({

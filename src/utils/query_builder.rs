@@ -19,6 +19,11 @@ pub struct QueryParams {
     pub sort_by: Option<String>,
     #[serde(rename = "sortOrder")]
     pub sort_order: Option<String>,
+
+    // Dynamic search fields support
+    // Format: search_fields=field1,field2,field3&search_value=searchterm
+    pub search_fields: Option<String>, // comma-separated field names
+    pub search_value: Option<String>,  // search term for the fields
 }
 
 impl Default for QueryParams {
@@ -32,6 +37,8 @@ impl Default for QueryParams {
             exclude: None,
             sort_by: Some("created_at".to_string()),
             sort_order: Some("desc".to_string()),
+            search_fields: None,
+            search_value: None,
         }
     }
 }
@@ -119,20 +126,41 @@ impl QueryBuilder {
         let mut param_count = 1;
 
         // Search functionality with prepared statements
-        if let Some(search) = &params.search {
-            if !search.is_empty() && !self.search_fields.is_empty() {
+        // Priority: dynamic search_fields > static search_fields
+        let search_term = params.search_value.as_ref().or(params.search.as_ref());
+
+        if let Some(search) = search_term {
+            if !search.is_empty() {
                 let search_pattern = format!("%{}%", search);
-                let search_conditions: Vec<String> = self
-                    .search_fields
-                    .iter()
-                    .map(|field| {
-                        let _ = args.add(&search_pattern);
-                        let condition = format!("{} ILIKE ${}", field, param_count);
-                        param_count += 1;
-                        condition
-                    })
-                    .collect();
-                conditions.push(format!("({})", search_conditions.join(" OR ")));
+
+                // Determine which fields to search in
+                let fields_to_search = if let Some(dynamic_fields) = &params.search_fields {
+                    // Use dynamic fields from URL parameter
+                    dynamic_fields
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|field| {
+                            // Security: only allow fields that are in allowed searchable fields
+                            self.search_fields.contains(field)
+                        })
+                        .collect::<Vec<String>>()
+                } else {
+                    // Use static/default search fields
+                    self.search_fields.clone()
+                };
+
+                if !fields_to_search.is_empty() {
+                    let search_conditions: Vec<String> = fields_to_search
+                        .iter()
+                        .map(|field| {
+                            let _ = args.add(&search_pattern);
+                            let condition = format!("{} ILIKE ${}", field, param_count);
+                            param_count += 1;
+                            condition
+                        })
+                        .collect();
+                    conditions.push(format!("({})", search_conditions.join(" OR ")));
+                }
             }
         }
 

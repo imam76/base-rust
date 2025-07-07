@@ -29,23 +29,13 @@ RUST_LOG=info
 3. **Database setup**
 ```bash
 # Create database
-====== createdb rust_base_db in your own mechine ======
+createdb rust_base_db
 
 # Run migrations
 sqlx migrate run
 ```
 
-## Dev (REPL)
-
-```bash
-# Terminal 1 - To run the server.
-cargo watch -q -c -w src/ -x "run"
-
-# Terminal 2 - To run the tests.
-cargo watch -q -c -w examples/ -x "run --example quick_dev"
-```
-
-4. **Or Run application**
+4. **Run application**
 ```bash
 # Development (with auto-reload)
 cargo watch -x run

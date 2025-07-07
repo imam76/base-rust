@@ -97,6 +97,10 @@ async fn handle_successful_login(
         cookie.set_http_only(true);
         cookie.set_secure(false); // Set to true in production with HTTPS
         cookie.set_path("/");
+
+        // Set cookie max age to match JWT expiry (24 hours)
+        cookie.set_max_age(tower_cookies::cookie::time::Duration::hours(24));
+
         cookies.add(cookie);
     }
 
@@ -169,6 +173,10 @@ pub async fn refresh_token(
     cookie.set_http_only(true);
     cookie.set_secure(false); // Set to true in production with HTTPS
     cookie.set_path("/");
+
+    // Set cookie max age to match JWT expiry (24 hours)
+    cookie.set_max_age(tower_cookies::cookie::time::Duration::hours(24));
+
     cookies.add(cookie);
 
     let response_body = json!({
@@ -186,4 +194,81 @@ pub async fn refresh_token(
     });
 
     Ok((StatusCode::OK, Json(response_body)).into_response())
+}
+
+pub async fn me(
+    headers: axum::http::HeaderMap,
+    cookies: Cookies,
+    State(state): State<AppState>,
+) -> Result<Response, AppError> {
+    info!("-> HANDLER - GET /auth/me");
+
+    // Try to get token from Authorization header first, then from cookie
+    let token = if let Some(auth_header) = headers.get("authorization") {
+        let auth_str = auth_header.to_str().map_err(|_| AppError::UnAuthorized)?;
+
+        if auth_str.starts_with("Bearer ") {
+            Some(auth_str.strip_prefix("Bearer ").unwrap().to_string())
+        } else {
+            None
+        }
+    } else if let Some(cookie) = cookies.get(AUTH_TOKEN) {
+        Some(cookie.value().to_string())
+    } else {
+        None
+    };
+
+    let token = token.ok_or(AppError::UnAuthorized)?;
+
+    // Validate JWT token
+    let claims = JwtService::validate_token(&token)?;
+
+    // Get user from database to check if still active
+    let user_id = claims.user_id()?;
+    let user = get_user_by_id(&state, user_id).await?;
+
+    // Check if user is still active
+    if !user.is_active {
+        info!("User {} is no longer active", user.email);
+        return Err(AppError::UnAuthorized);
+    }
+
+    // Return user info (without sensitive data)
+    let response_body = json!({
+        "status": "success",
+        "data": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_verified": user.is_verified,
+            "is_active": user.is_active,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }
+    });
+
+    Ok((StatusCode::OK, Json(response_body)).into_response())
+}
+
+// Helper function to get user by ID
+async fn get_user_by_id(state: &AppState, user_id: uuid::Uuid) -> Result<User, AppError> {
+    sqlx::query_as!(
+        User,
+        r#"
+        SELECT id, username, email, password_hash, first_name, last_name, 
+               is_active, is_verified, last_login_at, created_at, created_by, updated_at, updated_by
+        FROM users 
+        WHERE id = $1
+        "#,
+        user_id
+    )
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error when fetching user by ID: {}", e);
+        AppError::InternalServerError("Database error".to_string())
+    })?
+    .ok_or(AppError::UnAuthorized)
 }
