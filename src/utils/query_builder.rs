@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgArguments, Arguments, Column, PgPool, Row};
 use std::collections::HashMap;
-use uuid::Uuid;
+use tracing::{debug, warn};
+use uuid::Uuid; // Add tracing for logging
 
 #[derive(Debug, Deserialize)]
 pub struct QueryParams {
@@ -10,9 +11,8 @@ pub struct QueryParams {
     #[serde(rename = "perPage")]
     pub per_page: Option<u32>,
     pub search: Option<String>,
-    pub filter: Option<String>, // JSON string
-    #[allow(dead_code)]
-    pub include: Option<String>, // JSON array
+    pub filter: Option<String>,  // JSON string
+    pub include: Option<String>, // comma-separated relation names
     #[allow(dead_code)]
     pub exclude: Option<String>, // JSON array
     #[serde(rename = "sortBy")]
@@ -66,6 +66,13 @@ pub struct QueryBuilder {
     filterable_fields: Vec<String>,
     sortable_fields: Vec<String>,
     joins: Vec<String>,
+    include_relations: HashMap<String, IncludeConfig>,
+}
+
+#[derive(Clone)]
+pub struct IncludeConfig {
+    pub join_clause: String,
+    pub select_fields: Vec<String>,
 }
 
 impl QueryBuilder {
@@ -77,6 +84,7 @@ impl QueryBuilder {
             filterable_fields: Vec::new(),
             sortable_fields: Vec::new(),
             joins: Vec::new(),
+            include_relations: HashMap::new(),
         }
     }
 
@@ -105,6 +113,22 @@ impl QueryBuilder {
         self
     }
 
+    pub fn include_relation(
+        mut self,
+        name: &str,
+        join_clause: &str,
+        select_fields: Vec<&str>,
+    ) -> Self {
+        self.include_relations.insert(
+            name.to_string(),
+            IncludeConfig {
+                join_clause: join_clause.to_string(),
+                select_fields: select_fields.iter().map(|s| s.to_string()).collect(),
+            },
+        );
+        self
+    }
+
     pub fn build_query(&self, params: &QueryParams) -> (String, PgArguments, u32, u32) {
         let page = params.page.unwrap_or(1);
         let per_page = params.per_page.unwrap_or(10).min(100); // Max 100 per page
@@ -116,9 +140,35 @@ impl QueryBuilder {
             self.table
         );
 
-        // Add joins
+        // Add static joins
         for join in &self.joins {
             query.push_str(&format!(" {}", join));
+        }
+
+        // Add dynamic includes
+        if let Some(includes) = &params.include {
+            for include_name in includes.split(',') {
+                let include_name = include_name.trim();
+                if let Some(config) = self.include_relations.get(include_name) {
+                    query.push_str(&format!(" {}", config.join_clause));
+
+                    // Add include fields to SELECT if not using *
+                    if !self.select_fields.contains(&"*".to_string())
+                        && !config.select_fields.is_empty()
+                    {
+                        query = query.replace(
+                            &format!("SELECT {}", self.select_fields.join(", ")),
+                            &format!(
+                                "SELECT {}, {}",
+                                self.select_fields.join(", "),
+                                config.select_fields.join(", ")
+                            ),
+                        );
+                    }
+
+                    debug!("Added include join for: {}", include_name);
+                }
+            }
         }
 
         let mut conditions = Vec::new();
@@ -134,32 +184,68 @@ impl QueryBuilder {
                 let search_pattern = format!("%{}%", search);
 
                 // Determine which fields to search in
-                let fields_to_search = if let Some(dynamic_fields) = &params.search_fields {
-                    // Use dynamic fields from URL parameter
-                    dynamic_fields
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .filter(|field| {
-                            // Security: only allow fields that are in allowed searchable fields
-                            self.search_fields.contains(field)
-                        })
-                        .collect::<Vec<String>>()
-                } else {
-                    // Use static/default search fields
-                    self.search_fields.clone()
-                };
+                let (fields_to_search, _invalid_fields) =
+                    if let Some(dynamic_fields) = &params.search_fields {
+                        // Use dynamic fields from URL parameter
+                        let requested_fields: Vec<String> = dynamic_fields
+                            .split(',')
+                            .map(|s| s.trim().to_string())
+                            .collect();
+
+                        let valid_fields: Vec<String> = requested_fields
+                            .iter()
+                            .filter(|field| self.search_fields.contains(field))
+                            .cloned()
+                            .collect();
+
+                        let invalid_fields: Vec<String> = requested_fields
+                            .iter()
+                            .filter(|field| !self.search_fields.contains(field))
+                            .cloned()
+                            .collect();
+
+                        debug!("Dynamic search - Requested fields: {:?}", requested_fields);
+                        debug!("Dynamic search - Valid fields: {:?}", valid_fields);
+
+                        if !invalid_fields.is_empty() {
+                            warn!(
+                                "Invalid search fields ignored: {:?}. Valid fields: {:?}",
+                                invalid_fields, self.search_fields
+                            );
+                        }
+
+                        (valid_fields, invalid_fields)
+                    } else {
+                        // Use static/default search fields
+                        debug!("Using default search fields: {:?}", self.search_fields);
+                        (self.search_fields.clone(), Vec::new())
+                    };
 
                 if !fields_to_search.is_empty() {
                     let search_conditions: Vec<String> = fields_to_search
                         .iter()
                         .map(|field| {
                             let _ = args.add(&search_pattern);
-                            let condition = format!("{} ILIKE ${}", field, param_count);
+                            // Handle NULL values: field IS NOT NULL AND field ILIKE pattern
+                            let condition = format!(
+                                "({} IS NOT NULL AND {} ILIKE ${})",
+                                field, field, param_count
+                            );
                             param_count += 1;
                             condition
                         })
                         .collect();
-                    conditions.push(format!("({})", search_conditions.join(" OR ")));
+
+                    let search_clause = format!("({})", search_conditions.join(" OR "));
+                    conditions.push(search_clause.clone());
+
+                    debug!("Search clause added: {}", search_clause);
+                    debug!("Search pattern: {}", search_pattern);
+                } else {
+                    warn!(
+                        "No valid search fields available for search term: {}",
+                        search
+                    );
                 }
             }
         }
@@ -194,8 +280,12 @@ impl QueryBuilder {
                             }
                             _ => {} // Skip complex types
                         }
+                    } else {
+                        warn!("Filter field '{}' is not allowed: {:?}", key, value);
                     }
                 }
+            } else {
+                warn!("Failed to parse filter JSON: {}", filter);
             }
         }
 
@@ -208,6 +298,12 @@ impl QueryBuilder {
         let sort_by = params.sort_by.as_deref().unwrap_or("created_at");
         let sort_order = params.sort_order.as_deref().unwrap_or("desc");
 
+        debug!(
+            "Sort requested - field: '{}', order: '{}'",
+            sort_by, sort_order
+        );
+        debug!("Available sortable fields: {:?}", self.sortable_fields);
+
         if self.sortable_fields.contains(&sort_by.to_string()) {
             let order = if sort_order.to_lowercase() == "asc" {
                 "ASC"
@@ -215,6 +311,13 @@ impl QueryBuilder {
                 "DESC"
             };
             query.push_str(&format!(" ORDER BY {} {}", sort_by, order));
+            debug!("Applied sort: {} {}", sort_by, order);
+        } else {
+            warn!(
+                "Sort field '{}' is not allowed, falling back to default sort by 'created_at'",
+                sort_by
+            );
+            query.push_str(" ORDER BY created_at DESC");
         }
 
         // Pagination with prepared statements
@@ -226,36 +329,101 @@ impl QueryBuilder {
             param_count + 1
         ));
 
+        debug!("Built query: {}", query);
+        debug!("With parameters: {:?}", args);
+
         (query, args, page, per_page)
     }
 
     pub fn build_count_query(&self, params: &QueryParams) -> (String, PgArguments) {
         let mut query = format!("SELECT COUNT(*) as total FROM {}", self.table);
 
-        // Add joins for count (without SELECT part)
+        // Add static joins for count
         for join in &self.joins {
             query.push_str(&format!(" {}", join));
+        }
+
+        // Add dynamic includes for count
+        if let Some(includes) = &params.include {
+            for include_name in includes.split(',') {
+                let include_name = include_name.trim();
+                if let Some(config) = self.include_relations.get(include_name) {
+                    query.push_str(&format!(" {}", config.join_clause));
+                }
+            }
         }
 
         let mut conditions = Vec::new();
         let mut args = PgArguments::default();
         let mut param_count = 1;
 
-        // Search functionality (same as main query)
-        if let Some(search) = &params.search {
-            if !search.is_empty() && !self.search_fields.is_empty() {
+        // Search functionality - SAME LOGIC AS build_query (FIXED!)
+        let search_term = params.search_value.as_ref().or(params.search.as_ref());
+
+        if let Some(search) = search_term {
+            if !search.is_empty() {
                 let search_pattern = format!("%{}%", search);
-                let search_conditions: Vec<String> = self
-                    .search_fields
-                    .iter()
-                    .map(|field| {
-                        let _ = args.add(&search_pattern);
-                        let condition = format!("{} ILIKE ${}", field, param_count);
-                        param_count += 1;
-                        condition
-                    })
-                    .collect();
-                conditions.push(format!("({})", search_conditions.join(" OR ")));
+
+                // Determine which fields to search in (SAME AS build_query)
+                let (fields_to_search, _invalid_fields) =
+                    if let Some(dynamic_fields) = &params.search_fields {
+                        // Use dynamic fields from URL parameter
+                        let requested_fields: Vec<String> = dynamic_fields
+                            .split(',')
+                            .map(|s| s.trim().to_string())
+                            .collect();
+
+                        let valid_fields: Vec<String> = requested_fields
+                            .iter()
+                            .filter(|field| self.search_fields.contains(field))
+                            .cloned()
+                            .collect();
+
+                        let invalid_fields: Vec<String> = requested_fields
+                            .iter()
+                            .filter(|field| !self.search_fields.contains(field))
+                            .cloned()
+                            .collect();
+
+                        debug!(
+                            "Count query - Dynamic search - Requested fields: {:?}",
+                            requested_fields
+                        );
+                        debug!(
+                            "Count query - Dynamic search - Valid fields: {:?}",
+                            valid_fields
+                        );
+
+                        (valid_fields, invalid_fields)
+                    } else {
+                        // Use static/default search fields
+                        debug!(
+                            "Count query - Using default search fields: {:?}",
+                            self.search_fields
+                        );
+                        (self.search_fields.clone(), Vec::new())
+                    };
+
+                if !fields_to_search.is_empty() {
+                    let search_conditions: Vec<String> = fields_to_search
+                        .iter()
+                        .map(|field| {
+                            let _ = args.add(&search_pattern);
+                            // Handle NULL values: field IS NOT NULL AND field ILIKE pattern
+                            let condition = format!(
+                                "({} IS NOT NULL AND {} ILIKE ${})",
+                                field, field, param_count
+                            );
+                            param_count += 1;
+                            condition
+                        })
+                        .collect();
+
+                    let search_clause = format!("({})", search_conditions.join(" OR "));
+                    conditions.push(search_clause.clone());
+
+                    debug!("Count query - Search clause added: {}", search_clause);
+                }
             }
         }
 
@@ -297,6 +465,9 @@ impl QueryBuilder {
         if !conditions.is_empty() {
             query.push_str(&format!(" WHERE {}", conditions.join(" AND ")));
         }
+
+        debug!("Built count query: {}", query);
+        debug!("With parameters: {:?}", args);
 
         (query, args)
     }

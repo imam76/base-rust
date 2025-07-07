@@ -14,6 +14,46 @@ use crate::{
 pub struct CrudService;
 
 impl CrudService {
+    // Generic GET handler with include relations support
+    pub async fn get_list_with_includes<T>(
+        table: &str,
+        select_fields: Vec<&str>,
+        searchable_fields: Vec<&str>,
+        filterable_fields: Vec<&str>,
+        sortable_fields: Vec<&str>,
+        joins: Vec<&str>,
+        includes: Vec<(&str, &str, Vec<&str>)>, // (name, join_clause, select_fields)
+        query: Query<QueryParams>,
+        state: State<AppState>,
+        _auth: Option<Extension<AuthenticatedUser>>,
+    ) -> Result<Json<PaginatedResponse<T>>, AppError>
+    where
+        T: DeserializeOwned + Send + Unpin,
+    {
+        let mut builder = QueryBuilder::new(table)
+            .select(select_fields)
+            .searchable(searchable_fields)
+            .filterable(filterable_fields)
+            .sortable(sortable_fields);
+
+        // Add static joins
+        for join in joins {
+            builder = builder.join(join);
+        }
+
+        // Add include relations
+        for (name, join_clause, include_fields) in includes {
+            builder = builder.include_relation(name, join_clause, include_fields);
+        }
+
+        let result = builder
+            .execute(&state.db, &query.0)
+            .await
+            .map_err(|e| AppError::DatabaseError(e.to_string()))?;
+
+        Ok(Json(result))
+    }
+
     // Generic GET handler for any table
     pub async fn get_list<T>(
         table: &str,

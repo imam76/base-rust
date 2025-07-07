@@ -175,6 +175,28 @@ sqlx database drop && sqlx database create && sqlx migrate run
 PORT=3001
 ```
 
+### Include Related Data
+
+Load related data using the `include` parameter:
+
+```bash
+# Include created and updated user info
+GET /api/v1/contacts?include=created_user,updated_user
+
+# Combine with search and pagination
+GET /api/v1/contacts?search_fields=first_name&search_value=john&include=created_user&page=1&perPage=10
+```
+
+**Setup include relations in handlers:**
+```rust
+let includes = vec![
+    ("created_user", "LEFT JOIN users created_user ON contacts.created_by = created_user.id", 
+     vec!["created_user.id as created_user_id", "created_user.first_name as created_user_name"]),
+];
+
+CrudService::get_list_with_includes(table, fields, includes, query, state, auth).await
+```
+
 ---
 
 **Ready to build amazing APIs with Rust! 🦀**
