@@ -5,8 +5,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Contact {
     pub id: Uuid,
-    pub first_name: String,
-    pub last_name: String,
+    pub code: String,
+    pub name: String,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub mobile: Option<String>,
@@ -41,8 +41,8 @@ pub struct Contact {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateContactRequest {
-    pub first_name: String,
-    pub last_name: String,
+    pub code: String,
+    pub name: String,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub mobile: Option<String>,
@@ -72,8 +72,7 @@ pub struct CreateContactRequest {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateContactRequest {
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub name: Option<String>,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub mobile: Option<String>,
@@ -105,9 +104,8 @@ pub struct UpdateContactRequest {
 #[derive(Debug, Serialize)]
 pub struct ContactResponse {
     pub id: Uuid,
-    pub first_name: String,
-    pub last_name: String,
-    pub full_name: String,
+    pub code: String,
+    pub name: String,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub mobile: Option<String>,
@@ -144,9 +142,8 @@ impl From<Contact> for ContactResponse {
     fn from(contact: Contact) -> Self {
         Self {
             id: contact.id,
-            first_name: contact.first_name.clone(),
-            last_name: contact.last_name.clone(),
-            full_name: format!("{} {}", contact.first_name, contact.last_name),
+            code: contact.code.clone(),
+            name: contact.name.clone(),
             email: contact.email,
             phone: contact.phone,
             mobile: contact.mobile,

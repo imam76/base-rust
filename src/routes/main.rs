@@ -1,4 +1,7 @@
-use axum::{routing::get, Router};
+use axum::{
+    routing::{get, post},
+    Router,
+};
 
 use crate::{
     handlers::{
@@ -6,6 +9,7 @@ use crate::{
             create_contact, delete_contact, get_contact_by_id, get_contacts, get_customers,
             get_suppliers, update_contact,
         },
+        function::code_generator,
         users::{create_user, delete_user, get_all_users, get_user_by_id, get_users, update_user},
     },
     models::AppState,
@@ -15,6 +19,7 @@ pub async fn routes() -> Router<AppState> {
     Router::new()
         // Users routes
         .route("/hi", get(|| async { "🚀 Hello, user login!" }))
+        .route("/generate_code", post(code_generator))
         .route("/users", get(get_users).post(create_user))
         .route(
             "/users/{id}",

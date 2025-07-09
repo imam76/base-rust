@@ -2,8 +2,7 @@
 CREATE TABLE contacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) NOT NULL UNIQUE,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
+    name VARCHAR(150) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(50),
     mobile VARCHAR(50),
@@ -13,6 +12,7 @@ CREATE TABLE contacts (
     city VARCHAR(100),
     state VARCHAR(100),
     postal_code VARCHAR(20),
+    tax_identification_number VARCHAR(50),
     country VARCHAR(100) DEFAULT 'United States',
     billing_address_line1 VARCHAR(255),
     billing_address_line2 VARCHAR(255),
@@ -43,8 +43,8 @@ CREATE TABLE contacts (
 
 -- Create indexes for better performance
 CREATE INDEX idx_contacts_code ON contacts(code);
+CREATE INDEX idx_contacts_code ON contacts(name);
 CREATE INDEX idx_contacts_email ON contacts(email);
-CREATE INDEX idx_contacts_last_name ON contacts(last_name);
 CREATE INDEX idx_contacts_company ON contacts(company);
 CREATE INDEX idx_contacts_city ON contacts(city);
 CREATE INDEX idx_contacts_billing_city ON contacts(billing_city);
@@ -63,16 +63,15 @@ CREATE TRIGGER trigger_contacts_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert some sample data for testing (optional)
-INSERT INTO contacts (code, first_name, last_name, email, phone, company, is_employee, is_salesman) VALUES
-('D-00001', 'John', 'Doe', 'john.doe@company.com', '555-0101', 'ABC Corp', true, true),
-('S-00001', 'Jane', 'Smith', 'jane.smith@supplier.com', '555-0102', 'Supplier Inc', false, false);
+INSERT INTO contacts (code, name, email, phone, company, is_employee, is_salesman) VALUES
+('D-00001', 'John', 'john.doe@company.com', '555-0101', 'ABC Corp', true, true),
+('S-00001', 'Jane', 'jane.smith@supplier.com', '555-0102', 'Supplier Inc', false, false);
 
 -- Add comments for documentation
 COMMENT ON TABLE contacts IS 'Contact management table with role flags';
 COMMENT ON COLUMN contacts.code IS 'Unique code for the contact';
 COMMENT ON COLUMN contacts.id IS 'Unique identifier for each contact';
-COMMENT ON COLUMN contacts.first_name IS 'Contact first name';
-COMMENT ON COLUMN contacts.last_name IS 'Contact last name';
+COMMENT ON COLUMN contacts.name IS 'Contact first name';
 COMMENT ON COLUMN contacts.email IS 'Contact email address';
 COMMENT ON COLUMN contacts.address_line1 IS 'Primary address line 1';
 COMMENT ON COLUMN contacts.billing_address_line1 IS 'Billing address line 1';

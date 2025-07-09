@@ -10,15 +10,18 @@ use crate::{
         AppState, AuthenticatedUser, Contact, ContactResponse, CreateContactRequest,
         UpdateContactRequest,
     },
-    utils::{CrudService, PaginatedResponse, QueryParams},
+    utils::{
+        global_function::{determine_code, CodeRequest},
+        CrudService, PaginatedResponse, QueryParams, ValidatedJson,
+    },
     AppError,
 };
 
 const TABLE: &str = "contacts";
 const SELECT_FIELDS: &[&str] = &[
     "id",
-    "first_name",
-    "last_name",
+    "code",
+    "name",
     "email",
     "phone",
     "mobile",
@@ -51,15 +54,7 @@ const SELECT_FIELDS: &[&str] = &[
     "updated_by",
 ];
 const SEARCHABLE_FIELDS: &[&str] = &[
-    "first_name",
-    "last_name",
-    "email",
-    "phone",
-    "mobile",
-    "company",
-    "city",
-    "state",
-    "country",
+    "name", "email", "phone", "mobile", "company", "city", "state", "country",
 ];
 const FILTERABLE_FIELDS: &[&str] = &[
     "is_customer",
@@ -70,14 +65,7 @@ const FILTERABLE_FIELDS: &[&str] = &[
     "state",
     "country",
 ];
-const SORTABLE_FIELDS: &[&str] = &[
-    "first_name",
-    "last_name",
-    "email",
-    "company",
-    "created_at",
-    "updated_at",
-];
+const SORTABLE_FIELDS: &[&str] = &["name", "email", "company", "created_at", "updated_at"];
 const JOINS: &[&str] = &[];
 
 // GET /api/v1/contacts
@@ -86,33 +74,13 @@ pub async fn get_contacts(
     state: State<AppState>,
     auth: Extension<AuthenticatedUser>,
 ) -> Result<Json<PaginatedResponse<ContactResponse>>, AppError> {
-    let includes = vec![
-        (
-            "created_user",
-            "LEFT JOIN users created_user ON contacts.created_by = created_user.id",
-            vec![
-                "created_user.id as created_user_id",
-                "created_user.first_name as created_user_name",
-            ],
-        ),
-        (
-            "updated_user",
-            "LEFT JOIN users updated_user ON contacts.updated_by = updated_user.id",
-            vec![
-                "updated_user.id as updated_user_id",
-                "updated_user.first_name as updated_user_name",
-            ],
-        ),
-    ];
-
-    let Json(response_data) = CrudService::get_list_with_includes::<Contact>(
+    let Json(response_data) = CrudService::get_list::<Contact>(
         TABLE,
         SELECT_FIELDS.to_vec(),
         SEARCHABLE_FIELDS.to_vec(),
         FILTERABLE_FIELDS.to_vec(),
         SORTABLE_FIELDS.to_vec(),
         JOINS.to_vec(),
-        includes,
         query,
         state,
         "/api/v1/contacts",
@@ -158,12 +126,24 @@ pub async fn get_contact_by_id(
 pub async fn create_contact(
     state: State<AppState>,
     auth: Extension<AuthenticatedUser>,
-    Json(create_data): Json<CreateContactRequest>,
+    ValidatedJson(create_data): ValidatedJson<CreateContactRequest>,
 ) -> Result<Json<ContactResponse>, AppError> {
+    // ✅ Much cleaner and easier to read!
+    let contact_code = determine_code(
+        CodeRequest {
+            text: create_data.name.clone(),
+            code: Some(create_data.code.clone()),
+        },
+        TABLE,
+        &state.db,
+    )
+    .await
+    .map_err(|e| AppError::InternalServerError(e.to_string()))?;
+
     // Create contact data with default values
     let contact_data = serde_json::json!({
-        "first_name": create_data.first_name,
-        "last_name": create_data.last_name,
+        "code": contact_code,
+        "name": create_data.name,
         "email": create_data.email,
         "phone": create_data.phone,
         "mobile": create_data.mobile,

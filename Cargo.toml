@@ -3,7 +3,7 @@ name = "rust-base"
 version = "0.1.0"
 edition = "2021"
 description = "Rust Axum Backend with Query Builder, Authentication, and Contact Management"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Your Name asepimam335@gmail.com"]
 license = "MIT"
 
 [package.metadata.sqlx]
@@ -15,7 +15,7 @@ bcrypt = "0.17.0"
 chrono = { version = "0.4.41", features = ["serde"] }
 dotenvy = "0.15.7"
 jsonwebtoken = "9.2.0"
-lazy-regex = "3.4.1"
+lazy_static = "1.4.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "tls-native-tls", "uuid", "chrono", "derive", "json", "macros", "migrate", "postgres", "uuid"] }
@@ -25,6 +25,7 @@ tower-cookies = "0.11.0"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 uuid = { version = "1.17.0", features = ["serde", "v4"] }
+regex = "1.11.1"
 
 [dev-dependencies]
 anyhow = "1.0.98"
