@@ -1,6 +1,7 @@
 -- Create users table with comprehensive fields
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) NOT NULL UNIQUE,
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -16,6 +17,7 @@ CREATE TABLE users (
 );
 
 -- Create indexes for better performance
+CREATE INDEX idx_users_code ON users(code);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_users_created_at ON users(created_at);
@@ -37,9 +39,9 @@ CREATE TRIGGER trigger_users_updated_at
 
 -- Insert some sample data for testing (optional)
 -- pass 123123
-INSERT INTO users (username, email, password_hash, first_name, last_name, is_verified) VALUES
-('admin', 'yqwhjahsdjhuuushdajshdjh@mailinator.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Admin', 'User', true),
-('testuser', 'yqwhjahsdjhuuushdajshdjh@example.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Test', 'User', false);
+INSERT INTO users (code, username, email, password_hash, first_name, last_name, is_verified) VALUES
+('U-00001','admin', 'yqwhjahsdjhuuushdajshdjh@mailinator.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Admin', 'User', true),
+('U-00002','testuser', 'yqwhjahsdjhuuushdajshdjh@example.com', '$2a$12$sYofX.hqDW0gUiGZXbSj0.SzQ4heFwPpWCP0KoFzMrNW2rtfCYjQm', 'Test', 'User', false);
 
 -- Add comments for documentation
 COMMENT ON TABLE users IS 'User accounts table';
